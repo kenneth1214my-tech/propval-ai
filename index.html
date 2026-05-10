@@ -580,7 +580,31 @@ function PropValAI() {
   const NAV=[{id:"search",icon:"🌐",label:t.navSearch},{id:"upload",icon:"📁",label:t.navUpload},{id:"profile",icon:"🏠",label:t.navProfile},{id:"analyze",icon:"✨",label:t.navAnalyze},{id:"tools",icon:"🧮",label:t.navTools}];
   const ATABS=[{id:"val",label:t.valTab},{id:"mkt",label:t.mktTab},{id:"risk",label:t.riskTab}];
   const TTABS=[{id:"fin",label:t.finTab},{id:"report",label:t.reportTab}];
-  const AREAS=["Johor Bahru, Johor","Kuala Lumpur","Petaling Jaya, Selangor","Penang","Ipoh, Perak","Kota Kinabalu, Sabah"];
+  const AREA_GROUPS = [
+    { g:"Wilayah Persekutuan", areas:["Kuala Lumpur — KLCC / City Centre","Kuala Lumpur — Mont Kiara","Kuala Lumpur — Bangsar / Damansara Heights","Kuala Lumpur — Cheras","Kuala Lumpur — Kepong / Sri Damansara","Kuala Lumpur — Setapak / Wangsa Maju","Kuala Lumpur — Bukit Jalil / Sri Petaling","Kuala Lumpur — Desa ParkCity","Putrajaya","Labuan"]},
+    { g:"Selangor", areas:["Petaling Jaya, Selangor","Shah Alam, Selangor","Subang Jaya, Selangor","Klang, Selangor","Puchong, Selangor","Cheras, Selangor","Ampang, Selangor","Kajang, Selangor","Cyberjaya, Selangor","Sepang, Selangor","Rawang, Selangor","Gombak, Selangor","Hulu Langat, Selangor","Kuala Selangor, Selangor","Sabak Bernam, Selangor"]},
+    { g:"Johor", areas:["Johor Bahru, Johor","Iskandar Puteri, Johor","Skudai, Johor","Kulai, Johor","Pasir Gudang, Johor","Batu Pahat, Johor","Muar, Johor","Kluang, Johor","Segamat, Johor","Kota Tinggi, Johor","Pontian, Johor","Mersing, Johor"]},
+    { g:"Pulau Pinang", areas:["Georgetown, Penang","Tanjung Bungah / Gurney, Penang","Bayan Lepas, Penang","Sungai Ara / Relau, Penang","Batu Ferringhi, Penang","Gelugor, Penang","Butterworth, Penang","Bukit Mertajam, Penang","Kepala Batas, Penang"]},
+    { g:"Perak", areas:["Ipoh, Perak","Taiping, Perak","Teluk Intan, Perak","Lumut / Manjung, Perak","Kampar, Perak","Batu Gajah, Perak"]},
+    { g:"Kedah", areas:["Alor Setar, Kedah","Sungai Petani, Kedah","Kulim, Kedah","Langkawi, Kedah","Kubang Pasu, Kedah"]},
+    { g:"Pahang", areas:["Kuantan, Pahang","Temerloh, Pahang","Bentong, Pahang","Cameron Highlands, Pahang","Raub, Pahang","Genting Highlands, Pahang"]},
+    { g:"Negeri Sembilan", areas:["Seremban, Negeri Sembilan","Nilai, Negeri Sembilan","Port Dickson, Negeri Sembilan","Mantin, Negeri Sembilan","Bahau, Negeri Sembilan"]},
+    { g:"Melaka", areas:["Melaka City, Melaka","Ayer Keroh, Melaka","Alor Gajah, Melaka","Jasin, Melaka"]},
+    { g:"Kelantan", areas:["Kota Bharu, Kelantan","Wakaf Bharu, Kelantan","Pasir Mas, Kelantan","Tanah Merah, Kelantan","Machang, Kelantan"]},
+    { g:"Terengganu", areas:["Kuala Terengganu, Terengganu","Kemaman, Terengganu","Dungun, Terengganu","Besut, Terengganu"]},
+    { g:"Perlis", areas:["Kangar, Perlis","Arau, Perlis","Padang Besar, Perlis"]},
+    { g:"Sabah", areas:["Kota Kinabalu, Sabah","Likas / Api-Api, Sabah","Sandakan, Sabah","Tawau, Sabah","Lahad Datu, Sabah","Keningau, Sabah","Tuaran, Sabah","Beaufort, Sabah"]},
+    { g:"Sarawak", areas:["Kuching, Sarawak","Miri, Sarawak","Sibu, Sarawak","Bintulu, Sarawak","Limbang, Sarawak","Sri Aman, Sarawak","Sarikei, Sarawak"]},
+  ];
+  const AreaSelect = ({value, onChange}) => (
+    <Sel value={value} onChange={onChange}>
+      {AREA_GROUPS.map(grp=>(
+        <optgroup key={grp.g} label={"── "+grp.g+" ──"}>
+          {grp.areas.map(a=><option key={a} value={a}>{a}</option>)}
+        </optgroup>
+      ))}
+    </Sel>
+  );
 
   const SubNav = ({tabs,active,onChange}) => (
     <div style={{display:"flex",background:C.bg2,borderRadius:12,padding:4,marginBottom:16,gap:2}}>
@@ -618,7 +642,7 @@ function PropValAI() {
               <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🌐 {t.searchTitle}</div>
               <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>{t.searchSub}</div>
               <Row gap={10}>
-                <FG label={t.area} half><Sel value={sF.state} onChange={setSv("state")}>{AREAS.map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label={t.area} half><AreaSelect value={sF.state} onChange={setSv("state")}/></FG>
                 <FG label={t.propType} half><Sel value={sF.type} onChange={setSv("type")}><option value="">{t.allTypes}</option>{["Double Storey Terrace","Single Storey Terrace","Condominium","Semi-Detached","Bungalow"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
                 <FG label={t.status} half><Sel value={sF.status} onChange={setSv("status")}><option value="">{t.allStatus}</option><option value="new">{t.newOnly}</option><option value="subsale">{t.subsaleOnly}</option></Sel></FG>
                 <FG label={t.minBeds} half><Sel value={sF.rooms} onChange={setSv("rooms")}><option value="">{t.any}</option><option value="2">2+</option><option value="3">3+</option><option value="4">4+</option></Sel></FG>
@@ -731,7 +755,7 @@ function PropValAI() {
               <FG label={t.propAddr} style={{marginBottom:12}}><Input value={prof.addr} onChange={setP("addr")} placeholder={t.addrPh}/></FG>
               <Row gap={10}>
                 <FG label={t.propType} half><Sel value={prof.type} onChange={setP("type")}><option value="">{t.select}</option>{["Single Storey Terrace","Double Storey Terrace","Semi-Detached","Bungalow","Condominium","Serviced Apartment"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
-                <FG label={t.area} half><Sel value={prof.state} onChange={setP("state")}>{AREAS.map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label={t.area} half><AreaSelect value={prof.state} onChange={setP("state")}/></FG>
                 <FG label={t.landArea} half><Input type="number" value={prof.land} onChange={setP("land")} placeholder="1650" inputMode="numeric"/></FG>
                 <FG label={t.builtUp} half><Input type="number" value={prof.built} onChange={setP("built")} placeholder="1800" inputMode="numeric"/></FG>
                 <FG label={t.bedrooms} half><Sel value={prof.rooms} onChange={setP("rooms")}><option value="">{t.select}</option>{["2","3","3+1","4","4+1","5+"].map(s=><option key={s}>{s}</option>)}</Sel></FG>

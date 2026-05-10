@@ -1,4 +1,4 @@
-const CACHE = 'propval-v3-trilingual';
+const CACHE = 'propval-v4-myfull';
 const ASSETS = [
   './',
   './index.html',
