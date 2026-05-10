@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="theme-color" content="#0a0c12"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="PropVal AI"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icons/icon-192.png"/>
+<title>PropVal AI</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body,#root{height:100%;overflow:hidden}
+  body{background:#0a0c12;font-family:system-ui,-apple-system,sans-serif}
+  #loading{position:fixed;inset:0;background:#0a0c12;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:999}
+  #loading .logo{font-size:48px}
+  #loading .title{font-size:20px;font-weight:700;color:#e2e8f8}
+  #loading .sub{font-size:13px;color:#4a5470}
+  #loading .bar{width:160px;height:3px;background:#1e2638;border-radius:2px;overflow:hidden}
+  #loading .fill{height:100%;background:#3d82f5;border-radius:2px;animation:load 1.8s ease-in-out infinite}
+  @keyframes load{0%{width:0%}50%{width:80%}100%{width:100%}}
+</style>
+</head>
+<body>
+<div id="loading">
+  <div class="logo">🏢</div>
+  <div class="title">PropVal AI</div>
+  <div class="sub">正在启动...</div>
+  <div class="bar"><div class="fill"></div></div>
+</div>
+<div id="root"></div>
+
+<!-- React 18 via CDN -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<!-- Babel for JSX transpiling (browser-side, no build needed) -->
+<script src="https://unpkg.com/@babel/standalone@7.23.3/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useCallback } = React;
+
+const C = {
+  bg0:"#0a0c12",bg1:"#111520",bg2:"#171d2e",bg3:"#1e2638",
+  border:"#232b40",border2:"#2b3550",
+  txt:"#e2e8f8",txt2:"#7e8ea8",txt3:"#424f6a",
+  blue:"#3d82f5",blueBg:"#0c1c3a",blueTxt:"#6aa3ff",
+  green:"#30c47e",greenBg:"#082015",greenTxt:"#4adba0",
+  amber:"#e6b43a",amberBg:"#1e1808",amberTxt:"#f0cb5e",
+  red:"#d84848",redBg:"#220a0a",redTxt:"#f06868",
+};
+
+const GStyle = () => (
+  <style>{`
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    @keyframes sp{0%,80%,100%{opacity:.2;transform:scale(.7)}40%{opacity:1;transform:scale(1)}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes glow{0%,100%{opacity:.4}50%{opacity:1}}
+    input,select,textarea{-webkit-appearance:none;appearance:none}
+    input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+    ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${C.border2};border-radius:2px}
+    .page-enter{animation:fadeIn .2s ease}
+    .nav-btn:active{opacity:.55;transform:scale(.92)}
+    .tap:active{opacity:.6;transform:scale(.96)}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:${C.blue}!important;box-shadow:0 0 0 3px ${C.blueBg}}
+    select option{background:${C.bg2};color:${C.txt}}
+  `}</style>
+);
+
+const Input = (p) => <input {...p} style={{background:C.bg2,border:`1.5px solid ${C.border2}`,borderRadius:12,color:C.txt,fontFamily:"inherit",fontSize:15,padding:"12px 14px",width:"100%",...p.style}}/>;
+const Sel = ({children,...p}) => <select {...p} style={{background:C.bg2,border:`1.5px solid ${C.border2}`,borderRadius:12,color:C.txt,fontFamily:"inherit",fontSize:15,padding:"12px 14px",width:"100%",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%237e8ea8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center",backgroundSize:18,paddingRight:40,...p.style}}>{children}</select>;
+const TA = (p) => <textarea {...p} style={{background:C.bg2,border:`1.5px solid ${C.border2}`,borderRadius:12,color:C.txt,fontFamily:"inherit",fontSize:15,padding:"12px 14px",width:"100%",resize:"none",minHeight:80,...p.style}}/>;
+const FG = ({label,children,half}) => <div style={{display:"flex",flexDirection:"column",gap:6,flex:half?"1 1 calc(50% - 5px)":undefined}}>{label&&<span style={{fontSize:12.5,color:C.txt2,fontWeight:600,paddingLeft:2}}>{label}</span>}{children}</div>;
+const Row = ({children,gap=10}) => <div style={{display:"flex",gap,flexWrap:"wrap",marginBottom:12}}>{children}</div>;
+const Sec = ({children}) => <div style={{display:"flex",alignItems:"center",gap:8,margin:"18px 0 12px",fontSize:11,fontWeight:700,color:C.txt3,letterSpacing:".08em",textTransform:"uppercase"}}>{children}<div style={{flex:1,height:.5,background:C.border}}/></div>;
+
+const Btn = ({children,v="secondary",full,icon,disabled,onClick,style:sx={}}) => (
+  <button onClick={onClick} disabled={disabled} className="tap" style={{
+    display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+    padding:"14px 20px",borderRadius:14,border:"1.5px solid",
+    cursor:disabled?"not-allowed":"pointer",fontSize:15,fontWeight:600,
+    fontFamily:"inherit",width:full?"100%":undefined,opacity:disabled?.45:1,
+    minHeight:50,transition:"opacity .1s",
+    ...(v==="primary"?{background:C.blue,borderColor:C.blue,color:"#fff"}
+      :v==="green"?{background:C.greenBg,borderColor:C.green,color:C.greenTxt}
+      :{background:C.bg2,borderColor:C.border2,color:C.txt}),
+    ...sx
+  }}>{icon&&<span style={{fontSize:18}}>{icon}</span>}{children}</button>
+);
+
+const AiBox = ({text,loading,msg,ph,style:sx={}}) => {
+  const isErr = text&&(text.startsWith("请求失败")||text.includes("Failed"));
+  return (
+    <div style={{background:C.bg2,border:`1.5px solid ${isErr?C.red:text?C.border2:C.border}`,borderRadius:14,padding:16,minHeight:100,fontSize:14,lineHeight:1.8,color:isErr?C.redTxt:C.txt,whiteSpace:"pre-wrap",...sx}}>
+      {loading?<Spin msg={msg}/>:text?text:<span style={{color:C.txt3,fontStyle:"italic",fontSize:13.5}}>{ph}</span>}
+    </div>
+  );
+};
+
+const MC = ({label,value,sub}) => (
+  <div style={{background:C.bg2,borderRadius:14,padding:"14px 12px",flex:1}}>
+    <div style={{fontSize:11,color:C.txt3,marginBottom:4}}>{label}</div>
+    <div style={{fontSize:16,fontWeight:700,color:C.txt,lineHeight:1.2}}>{value}</div>
+    {sub&&<div style={{fontSize:10.5,color:C.txt3,marginTop:3}}>{sub}</div>}
+  </div>
+);
+
+const Spin = ({msg="AI 分析中..."}) => (
+  <div style={{display:"flex",alignItems:"center",gap:8,color:C.txt2,fontSize:13.5}}>
+    <span style={{display:"flex",gap:3}}>
+      {[0,.2,.4].map((d,i)=><span key={i} style={{width:6,height:6,borderRadius:"50%",background:C.txt3,display:"inline-block",animation:`sp 1.2s ${d}s ease-in-out infinite`}}/>)}
+    </span>{msg}
+  </div>
+);
+
+const callAI = async (messages, max=1000) => {
+  const res = await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:max,messages})
+  });
+  const d = await res.json();
+  if(d.error) throw new Error(d.error.message);
+  return (d.content||[]).map(b=>b.text||"").join("").trim();
+};
+const aiText = (p,max=1000) => callAI([{role:"user",content:p}],max);
+const aiMulti = (imgs,prompt,max=1500) => callAI([{role:"user",content:[
+  ...imgs.map(({b64,mime})=>({type:"image",source:{type:"base64",media_type:mime,data:b64}})),
+  {type:"text",text:prompt}
+]}],max);
+const toB64 = f => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(f);});
+
+function PropValAI() {
+  const [tab,setTab]       = useState("search");
+  const [subTab,setSubTab] = useState({analyze:"val",tools:"fin"});
+  const [busy,setBusy]     = useState({});
+  const [outs,setOuts]     = useState({});
+  const [mktRows,setMktRows]     = useState(null);
+  const [riskItems,setRiskItems] = useState(null);
+  const [reportSecs,setReportSecs] = useState(null);
+  const [searchRes,setSearchRes] = useState(null);
+  const [files,setFiles]   = useState([]);
+  const [previews,setPreviews] = useState([]);
+  const [anOpts,setAnOpts] = useState({photo:true,defect:true,doc:true,val:false});
+  const [schedOn,setSchedOn] = useState(false);
+  const [schedDates,setSchedDates] = useState([]);
+  const [saved,setSaved]   = useState(false);
+  const [metrics,setMetrics] = useState({val:"—",psf:"—",bank:"—"});
+  const [finV,setFinV]     = useState({price:"",rent:"",down:"10",rate:"4.0",years:"35",maint:"300"});
+  const [finR,setFinR]     = useState(null);
+  const [prof,setProf]     = useState({addr:"",type:"",state:"Johor Bahru, Johor",land:"",built:"",rooms:"",baths:"",year:"",price:"",tenure:"",rent:"",cond:""});
+  const [sF,setSF]         = useState({state:"Johor Bahru, Johor",type:"所有类型",status:"新屋 + 二手",minp:"",maxp:"",kw:""});
+  const fileRef = useRef();
+  const dropRef = useRef();
+
+  const setB = (k,v) => setBusy(b=>({...b,[k]:v}));
+  const setO = (k,v) => setOuts(o=>({...o,[k]:v}));
+  const setP = k => e => setProf(p=>({...p,[k]:e.target.value}));
+  const setSv = k => e => setSF(s=>({...s,[k]:e.target.value}));
+
+  const run = async (key,prompt,max=1000) => {
+    setB(key,true);setO(key,null);
+    try{const t=await aiText(prompt,max);setO(key,t);return t;}
+    catch(e){setO(key,"请求失败："+e.message);return "";}
+    finally{setB(key,false);}
+  };
+
+  const buildP = useCallback((task) =>
+    `你是马来西亚持牌房产估价师（LPPEH），请用中文分析以下房产，${task}。\n`+
+    `地址：${prof.addr||"未提供"} | 类型：${prof.type||"?"} | 地区：${prof.state||"?"}\n`+
+    `土地：${prof.land||"?"}sqft | 建筑：${prof.built||"?"}sqft | ${prof.rooms||"?"}房${prof.baths||"?"}浴\n`+
+    `建造：${prof.year||"?"}年 | 价格：RM${prof.price||"?"} | 地契：${prof.tenure||"?"}\n`+
+    `月租：RM${prof.rent||"?"} | 状况：${prof.cond||"未提供"}`
+  ,[prof]);
+
+  const runSearch = async () => {
+    setB("search",true);setSearchRes(null);
+    try{
+      const text=await aiText(`你是马来西亚专业房产顾问。针对以下条件整理5个有潜力的房产。
+条件：地区:${sF.state}|类型:${sF.type}|状态:${sF.status}|价格:RM${sF.minp||"300000"}-${sF.maxp||"1000000"}|关键词:${sF.kw||"无"}
+每个房产严格用此格式（一行，字段用|分隔）：
+房产N|[地址]|[类型]|[新屋/二手]|[建筑sqft]|[X房X浴]|[Freehold/Leasehold]|RM[价格]|RM[每尺]|RM[月租]|[亮点]|[平台]
+列出5个后写"总结："加市场总结（2句）。`,1400);
+      const lines=text.split("\n").filter(l=>l.match(/^房产\d\|/));
+      const sum=(text.match(/总结[：:](.+)/s)||[])[1]?.trim()||"";
+      setSearchRes({lines,sum});
+    }catch(e){setSearchRes({error:e.message});}
+    finally{setB("search",false);}
+  };
+
+  const loadToProfile = (line) => {
+    const p=line.split("|");
+    setProf(prev=>({...prev,addr:p[1]?.trim()||prev.addr,type:p[2]?.trim()||prev.type,price:p[7]?.replace(/[^0-9]/g,"")||prev.price,rent:p[9]?.replace(/[^0-9]/g,"")||prev.rent}));
+    setTab("profile");
+  };
+
+  const toggleSched = () => {
+    const on=!schedOn;setSchedOn(on);
+    if(on){const now=new Date();const fmt=d=>d.toLocaleDateString("zh-CN",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});setSchedDates([1,3,5].map(n=>fmt(new Date(now.getTime()+n*86400000))));}
+  };
+
+  const handleFiles = (newFiles) => {
+    const valid=Array.from(newFiles).filter(f=>f.size<=10*1024*1024);
+    setFiles(prev=>{const m=[...prev];valid.forEach(f=>{if(!m.find(x=>x.name===f.name))m.push(f);});return m;});
+    valid.forEach(f=>{if(f.type.startsWith("image/")){const url=URL.createObjectURL(f);setPreviews(prev=>[...prev,{url,name:f.name}]);}});
+  };
+
+  const analyzeFiles = async () => {
+    if(!files.length)return;
+    setB("upload",true);setO("upload",null);
+    const imgFiles=files.filter(f=>f.type.startsWith("image/"));
+    const docFiles=files.filter(f=>!f.type.startsWith("image/"));
+    const tasks=[anOpts.photo&&"照片房产状况分析",anOpts.defect&&"缺陷检测（漏水/裂缝/装修问题）",anOpts.doc&&"文件内容提取",anOpts.val&&"对估值的影响评估（+/- RM）"].filter(Boolean);
+    try{
+      let text;
+      if(imgFiles.length>0){
+        const imgList=await Promise.all(imgFiles.map(async f=>({b64:await toB64(f),mime:f.type,name:f.name})));
+        const docNames=docFiles.map(f=>f.name).join("、");
+        text=await aiMulti(imgList,`你是马来西亚专业房产估价师。我上传了${imgList.length}张房产照片${docNames?`，及文件：${docNames}`:""}，请用中文逐张分析，执行任务：\n${tasks.map((t,i)=>`${i+1}.【${t}】`).join("\n")}\n\n先逐张描述（照片1、照片2…），再综合给出：整体影响(+/-RM)、主要缺陷/优势、建议行动。最后【总体评估】：状况评级（优/良/一般/差）及购买建议。`,1500);
+      }else{
+        text=await aiText(`你是马来西亚房产估价师。用户上传了：${docFiles.map(f=>f.name).join("、")}。请用中文说明审查这些文件时应重点检查的内容。任务：${tasks.join("、")}`,900);
+      }
+      setO("upload",text);
+    }catch(e){setO("upload","分析失败："+e.message);}
+    finally{setB("upload",false);}
+  };
+
+  const saveProfile = () => {
+    if(prof.price&&prof.built){
+      const v=+prof.price,b=+prof.built;
+      setMetrics({val:"RM "+(Math.round(v/5000)*5000).toLocaleString(),psf:"RM "+Math.round(v/b),bank:"RM "+(Math.round(v*.93/1000)*1000).toLocaleString()});
+      const nf={...finV,price:prof.price,rent:prof.rent||finV.rent};setFinV(nf);calcFin(nf);
+    }
+    setSaved(true);setTimeout(()=>setSaved(false),2000);
+  };
+
+  const fillDemo = () => {
+    const d={addr:"No.18, Jalan Ros Merah 2/16, Taman Johor Jaya, 81100 JB",type:"双层排屋",state:"Johor Bahru, Johor",land:"1650",built:"1800",rooms:"4",baths:"3",year:"2008",price:"680000",tenure:"永久地契 (Freehold)",rent:"2400",cond:"翻新厨房（2020年）、新装空调3台、太阳能热水器，临近 Aeon Tebrau，学区内。"};
+    setProf(d);setMetrics({val:"RM 680,000",psf:"RM 378",bank:"RM 632,000"});
+    const nf={...finV,price:"680000",rent:"2400"};setFinV(nf);calcFin(nf);
+    setSaved(true);setTimeout(()=>setSaved(false),2000);
+  };
+
+  const runVal = async () => {
+    const t=await run("val",buildP("请提供：\n1.【估值摘要】市场价值范围(RM)及方法\n2.【价格分析】要求价是否合理\n3.【每尺参考价】该区域基准\n4.【银行估值预测】与市价差距\n5.【专业建议】是否值得购买，各2-3句"),1000);
+    if(t&&prof.price&&prof.built){const v=+prof.price,b=+prof.built;setMetrics({val:"RM "+(Math.round(v/5000)*5000).toLocaleString(),psf:"RM "+Math.round(v/b),bank:"RM "+(Math.round(v*.93/1000)*1000).toLocaleString()});}
+  };
+
+  const runMkt = async () => {
+    setMktRows(null);
+    const t=await run("mkt",buildP("1.列出3个可比房产，每个一行：可比N：[地址]|[面积sqft]|[成交价RM]|[每尺RM]|[差异]\n2.【市场趋势】过去12个月\n3.【供需分析】\n4.【估值调整建议】"),1000);
+    if(!t)return;
+    const lines=t.split("\n").filter(l=>l.includes("可比")&&l.includes("|"));
+    if(lines.length)setMktRows(lines.slice(0,3).map(l=>l.split("|").map(s=>s.replace(/可比\d：/,"").trim())));
+  };
+
+  const runRisk = async () => {
+    setRiskItems(null);
+    const t=await run("risk",buildP("风险评估四维度，各给等级（低/中/高风险）+2句：\n1.【结构性风险】\n2.【法律文件风险】\n3.【市场流动性风险】\n4.【融资风险】\n最后【综合评级】+购买建议"),1000);
+    if(!t)return;
+    const risks=["结构性风险","法律文件风险","市场流动性风险","融资风险"];
+    const defs=["物理状态与房龄","地契及产权","成交量与波动","银行估值差距"];
+    setRiskItems(risks.map((r,i)=>{
+      const line=t.split("\n").find(l=>l.includes(r))||"";
+      const lv=line.includes("低风险")?"low":line.includes("高风险")?"high":"med";
+      return{title:r,def:defs[i],lv};
+    }));
+  };
+
+  const genReport = async () => {
+    setReportSecs(null);
+    const t=await run("report",buildP("生成完整估价报告，包含：\n【一、执行摘要】\n【二、房产概况】\n【三、市场分析】\n【四、估值方法与结论】\n【五、投资价值评估】\n【六、风险与购买建议】\n每节约100字，专业估价师语气。"),1500);
+    if(!t)return;
+    const parts=t.split(/【[一二三四五六]、/);
+    const titles=["执行摘要","房产概况","市场分析","估值方法与结论","投资价值评估","风险与购买建议"];
+    if(parts.length>1)setReportSecs(parts.slice(1).map((p,i)=>({title:titles[i]||`章节${i+1}`,body:p.replace("】","").trim()})));
+  };
+
+  const setFv = k => e => {const nf={...finV,[k]:e.target.value};setFinV(nf);calcFin(nf);};
+  const calcFin = (f=finV) => {
+    const price=+f.price||0,rent=+f.rent||0,down=+f.down||10,rate=+f.rate||4,years=+f.years||35,maint=+f.maint||300;
+    if(!price){setFinR(null);return;}
+    const da=price*down/100,loan=price-da,r=rate/100/12,n=years*12;
+    const mo=loan*(r*Math.pow(1+r,n))/(Math.pow(1+r,n)-1);
+    const cf=rent-mo-maint,gy=rent*12/price*100,cap=(rent-maint)*12/price*100;
+    setFinR({
+      rows:[["首付金额","RM "+Math.round(da).toLocaleString(),null],["贷款金额","RM "+Math.round(loan).toLocaleString(),null],["每月供款","RM "+Math.round(mo).toLocaleString()+"/月",null],["月净现金流","RM "+Math.round(cf).toLocaleString()+"/月",cf>=0?C.greenTxt:C.redTxt],["毛收益率",gy.toFixed(2)+"%/年",null],["Cap Rate",cap.toFixed(2)+"%/年",cap>=4?C.greenTxt:cap>=2.5?C.amberTxt:C.redTxt]],
+      tip:cf>=0?`✅ 正现金流！月盈余 RM ${Math.round(cf).toLocaleString()}，Cap Rate ${cap.toFixed(2)}%${cap>=4?" — 优质投资！":""}`:`⚠️ 需每月补贴 RM ${Math.round(Math.abs(cf)).toLocaleString()}。建议提高首付或压低价格。`
+    });
+  };
+
+  const NAV = [{id:"search",icon:"🌐",label:"找房"},{id:"upload",icon:"📁",label:"上传"},{id:"profile",icon:"🏠",label:"档案"},{id:"analyze",icon:"✨",label:"分析"},{id:"tools",icon:"🧮",label:"工具"}];
+  const ATABS = [{id:"val",label:"✨ 估值"},{id:"mkt",label:"📊 市场"},{id:"risk",label:"🛡 风险"}];
+  const TTABS = [{id:"fin",label:"🧮 财务"},{id:"report",label:"📄 报告"}];
+
+  const SubNav = ({tabs,active,onChange}) => (
+    <div style={{display:"flex",background:C.bg2,borderRadius:12,padding:4,marginBottom:16,gap:2}}>
+      {tabs.map(t=>(
+        <button key={t.id} onClick={()=>onChange(t.id)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:9,border:"none",background:active===t.id?C.bg0:"transparent",color:active===t.id?C.txt:C.txt3,fontSize:13,fontWeight:active===t.id?600:400,cursor:"pointer",fontFamily:"inherit"}}>{t.label}</button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{fontFamily:"system-ui,-apple-system,sans-serif",background:C.bg0,color:C.txt,height:"100vh",display:"flex",flexDirection:"column",maxWidth:768,margin:"0 auto"}}>
+      <GStyle/>
+      <div style={{background:C.bg1,borderBottom:`1px solid ${C.border}`,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <span style={{fontSize:20}}>🏢</span>
+        <span style={{fontSize:15,fontWeight:700}}>PropVal AI</span>
+        <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:C.greenBg,color:C.greenTxt,border:`1px solid ${C.green}`}}>马来西亚房产估价</span>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5}}>
+          <div style={{width:7,height:7,borderRadius:"50%",background:C.green,boxShadow:`0 0 8px ${C.green}`,animation:"glow 2s infinite"}}/>
+          <span style={{fontSize:11,color:C.txt3}}>AI就绪</span>
+        </div>
+      </div>
+
+      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}} className="page-enter">
+        <div style={{padding:"16px 16px 20px"}}>
+
+          {tab==="search"&&(
+            <div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🌐 全网找房</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>搜索 PropertyGuru · iProperty · Mudah</div>
+              <Row gap={10}>
+                <FG label="地区" half><Sel value={sF.state} onChange={setSv("state")}>{["Johor Bahru, Johor","Kuala Lumpur","Petaling Jaya, Selangor","Penang","Ipoh, Perak","Kota Kinabalu, Sabah"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label="类型" half><Sel value={sF.type} onChange={setSv("type")}>{["所有类型","双层排屋","单层排屋","公寓/Condo","半独立式","独立式"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label="最低价 (RM)" half><Input type="number" value={sF.minp} onChange={setSv("minp")} placeholder="300000" inputMode="numeric"/></FG>
+                <FG label="最高价 (RM)" half><Input type="number" value={sF.maxp} onChange={setSv("maxp")} placeholder="1000000" inputMode="numeric"/></FG>
+              </Row>
+              <FG label="关键词" style={{marginBottom:16}}><Input value={sF.kw} onChange={setSv("kw")} placeholder="永久地契、靠近学校、低于市价..."/></FG>
+              <Btn v="primary" full icon="🔍" onClick={runSearch} disabled={busy.search} style={{marginBottom:10}}>
+                {busy.search?<Spin msg="搜索中..."/>:"立即全网搜索"}
+              </Btn>
+              <Btn onClick={toggleSched} full icon="⏰" style={{marginBottom:16,borderColor:schedOn?C.green:C.border2,color:schedOn?C.greenTxt:C.txt}}>
+                {schedOn?"已开启定时搜索（每2天）":"开启每2天自动搜索"}
+              </Btn>
+              {schedOn&&(
+                <div style={{background:C.bg1,border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:16}}>
+                  <div style={{fontSize:13,fontWeight:600,color:C.txt2,marginBottom:10}}>📅 定时搜索计划</div>
+                  {schedDates.map((d,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<2?`1px solid ${C.border}`:"none"}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:i===0?C.green:C.border2,flexShrink:0}}/>
+                      <span style={{fontSize:14,color:C.txt}}>任务 #{i+1}</span>
+                      <span style={{marginLeft:"auto",fontSize:12.5,color:C.txt3}}>{d}</span>
+                      {i===0&&<span style={{fontSize:10.5,padding:"2px 7px",borderRadius:20,background:C.greenBg,color:C.greenTxt,border:`1px solid ${C.green}`}}>下次</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {busy.search&&<div style={{padding:"20px 0"}}><Spin msg="正在搜索各大房产平台..."/></div>}
+              {searchRes?.error&&<div style={{background:C.redBg,border:`1px solid ${C.red}`,borderRadius:12,padding:14,color:C.redTxt,fontSize:14}}>搜索失败：{searchRes.error}</div>}
+              {searchRes?.lines?.map((line,i)=>{
+                const p=line.split("|");const isNew=p[3]?.includes("新屋");
+                return(
+                  <div key={i} style={{background:C.bg1,border:`1px solid ${C.border}`,borderRadius:16,padding:16,marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:8}}>
+                      <div style={{fontSize:15,fontWeight:600,color:C.txt,flex:1,lineHeight:1.3}}>{p[1]?.trim()}</div>
+                      <span style={{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,background:isNew?C.greenBg:C.amberBg,color:isNew?C.greenTxt:C.amberTxt,border:`1px solid ${isNew?C.green:C.amber}`}}>{isNew?"新屋":"二手"}</span>
+                    </div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+                      {[p[2],p[4],p[5],p[6]].filter(Boolean).map((t,j)=>(
+                        <span key={j} style={{fontSize:11.5,padding:"3px 9px",borderRadius:20,background:C.bg3,color:C.txt2,border:`1px solid ${C.border2}`}}>{t.trim()}</span>
+                      ))}
+                    </div>
+                    <div style={{fontSize:20,fontWeight:700,color:C.blueTxt,marginBottom:4}}>{p[7]?.trim()}</div>
+                    <div style={{fontSize:12.5,color:C.txt3,marginBottom:8}}>每尺 {p[8]?.trim()} · 月租潜力 {p[9]?.trim()}</div>
+                    {p[10]&&<div style={{fontSize:13.5,color:C.txt2,lineHeight:1.5,marginBottom:12}}>✦ {p[10].trim()}</div>}
+                    <Btn v="green" onClick={()=>loadToProfile(line)} icon="→">载入估价</Btn>
+                  </div>
+                );
+              })}
+              {searchRes?.sum&&<><Sec>搜索总结</Sec><AiBox text={searchRes.sum} ph=""/></>}
+            </div>
+          )}
+
+          {tab==="upload"&&(
+            <div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>📁 上传分析</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>支持多张照片同时上传 · PDF 文件</div>
+              <div ref={dropRef} onClick={()=>fileRef.current?.click()}
+                onDragOver={e=>{e.preventDefault();dropRef.current.style.borderColor=C.blue}}
+                onDragLeave={()=>dropRef.current.style.borderColor=C.border2}
+                onDrop={e=>{e.preventDefault();dropRef.current.style.borderColor=C.border2;handleFiles(e.dataTransfer.files)}}
+                style={{border:`2px dashed ${C.border2}`,borderRadius:16,padding:"28px 20px",textAlign:"center",cursor:"pointer",marginBottom:14,transition:"border-color .2s"}}>
+                <div style={{fontSize:40,marginBottom:8}}>📸</div>
+                <div style={{fontSize:15,fontWeight:600,color:C.txt,marginBottom:4}}>点击选择 或 拖放照片</div>
+                <div style={{fontSize:13,color:C.txt3}}>可同时选择多张 · JPG / PNG / PDF · 最大 10MB</div>
+              </div>
+              <input ref={fileRef} type="file" multiple accept="image/*,.pdf" style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
+              {previews.length>0&&(
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
+                  {previews.map((p,i)=>(
+                    <div key={i} style={{position:"relative",borderRadius:10,overflow:"hidden"}}>
+                      <img src={p.url} alt={p.name} style={{width:"100%",aspectRatio:"1",objectFit:"cover",display:"block"}}/>
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,.6)",fontSize:9.5,color:"#fff",padding:"3px 5px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {files.length>0&&<div style={{fontSize:13,color:C.greenTxt,marginBottom:12,padding:"8px 12px",background:C.greenBg,borderRadius:10,border:`1px solid ${C.green}`}}>✓ 已选 {files.length} 个文件（{files.filter(f=>f.type.startsWith("image/")).length} 张照片）</div>}
+              <Sec>分析项目</Sec>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+                {[["photo","📷","照片状况"],["defect","🔍","缺陷检测"],["doc","📄","文件提取"],["val","💰","估值影响"]].map(([k,ic,l])=>(
+                  <label key={k} onClick={()=>setAnOpts(o=>({...o,[k]:!o[k]}))} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",borderRadius:12,border:`1.5px solid ${anOpts[k]?C.blue:C.border2}`,background:anOpts[k]?C.blueBg:C.bg2,cursor:"pointer",transition:"all .15s"}}>
+                    <span style={{fontSize:18}}>{ic}</span>
+                    <span style={{fontSize:14,color:anOpts[k]?C.blueTxt:C.txt2,fontWeight:anOpts[k]?600:400}}>{l}</span>
+                  </label>
+                ))}
+              </div>
+              <Row gap={10}>
+                <Btn v="primary" full icon="✨" onClick={analyzeFiles} disabled={busy.upload||!files.length}>
+                  {busy.upload?<Spin msg="AI 分析所有照片..."/>:"AI 分析全部文件"}
+                </Btn>
+                {files.length>0&&<Btn icon="🗑" onClick={()=>{setFiles([]);setPreviews([]);setO("upload",null);}}>清除</Btn>}
+              </Row>
+              <Sec>分析结果</Sec>
+              <AiBox text={outs.upload} loading={busy.upload} msg="AI 正在逐张分析照片..." ph="上传照片后 AI 将逐张分析状况、缺陷、估值影响..."/>
+            </div>
+          )}
+
+          {tab==="profile"&&(
+            <div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🏠 房产档案</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>填写信息，驱动所有分析模块</div>
+              <FG label="房产地址" style={{marginBottom:12}}><Input value={prof.addr} onChange={setP("addr")} placeholder="例：No.18, Jalan Ros Merah, Taman Johor Jaya, JB"/></FG>
+              <Row gap={10}>
+                <FG label="房产类型" half><Sel value={prof.type} onChange={setP("type")}><option value="">选择...</option>{["单层排屋","双层排屋","半独立式","独立式洋房","公寓/Condo","服务式公寓"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label="地区" half><Sel value={prof.state} onChange={setP("state")}>{["Johor Bahru, Johor","Kuala Lumpur","Petaling Jaya, Selangor","Penang","Ipoh, Perak"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label="土地面积 (sqft)" half><Input type="number" value={prof.land} onChange={setP("land")} placeholder="1650" inputMode="numeric"/></FG>
+                <FG label="建筑面积 (sqft)" half><Input type="number" value={prof.built} onChange={setP("built")} placeholder="1800" inputMode="numeric"/></FG>
+                <FG label="房间数" half><Sel value={prof.rooms} onChange={setP("rooms")}><option value="">选择...</option>{["2","3","3+1","4","4+1","5+"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label="浴室数" half><Sel value={prof.baths} onChange={setP("baths")}><option value="">选择...</option>{["1","2","3","4"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label="建造年份" half><Input type="number" value={prof.year} onChange={setP("year")} placeholder="2008" inputMode="numeric"/></FG>
+                <FG label="要求价格 (RM)" half><Input type="number" value={prof.price} onChange={setP("price")} placeholder="680000" inputMode="numeric"/></FG>
+                <FG label="月租金 (RM)" half><Input type="number" value={prof.rent} onChange={setP("rent")} placeholder="2400" inputMode="numeric"/></FG>
+                <FG label="地契类型" half><Sel value={prof.tenure} onChange={setP("tenure")}><option value="">选择...</option><option>永久地契 (Freehold)</option><option>租赁地契 (Leasehold)</option></Sel></FG>
+              </Row>
+              <FG label="装修状况与特点" style={{marginBottom:16}}><TA value={prof.cond} onChange={setP("cond")} placeholder="例：翻新厨房、新空调3台、靠近学校..."/></FG>
+              <Row gap={10}>
+                <Btn v="primary" full icon="✓" onClick={saveProfile}>保存档案</Btn>
+                <Btn icon="🪄" onClick={fillDemo}>示例</Btn>
+              </Row>
+              {saved&&<div style={{textAlign:"center",color:C.greenTxt,fontSize:14,marginTop:10}}>✓ 档案已保存</div>}
+            </div>
+          )}
+
+          {tab==="analyze"&&(
+            <div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>📈 房产分析</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:14}}>AI 估值 · 市场比较 · 风险评估</div>
+              <SubNav tabs={ATABS} active={subTab.analyze} onChange={v=>setSubTab(s=>({...s,analyze:v}))}/>
+              {subTab.analyze==="val"&&(
+                <div>
+                  <div style={{display:"flex",gap:8,marginBottom:14}}>
+                    <MC label="市场估值" value={metrics.val} sub="AI综合分析"/>
+                    <MC label="每尺价格" value={metrics.psf} sub="建筑面积"/>
+                    <MC label="银行估值" value={metrics.bank} sub="较市价保守"/>
+                  </div>
+                  <Btn v="primary" full icon="✨" onClick={runVal} disabled={busy.val} style={{marginBottom:14}}>
+                    {busy.val?<Spin msg="AI 估值中..."/>:"开始 AI 估值"}
+                  </Btn>
+                  <AiBox text={outs.val} loading={busy.val} msg="AI 估值分析中..." ph="保存档案后点击估值..."/>
+                </div>
+              )}
+              {subTab.analyze==="mkt"&&(
+                <div>
+                  <Btn v="primary" full icon="📊" onClick={runMkt} disabled={busy.mkt} style={{marginBottom:14}}>
+                    {busy.mkt?<Spin msg="生成比较数据..."/>:"AI 生成市场比较"}
+                  </Btn>
+                  {mktRows&&(
+                    <div style={{overflowX:"auto",marginBottom:14}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12.5,minWidth:400}}>
+                        <thead><tr>{["地址","面积","成交价","每尺","差异"].map(h=><th key={h} style={{textAlign:"left",fontSize:11,fontWeight:600,color:C.txt3,padding:"0 8px 8px",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          <tr>{[`本物业`,`${prof.built||"?"}sqft`,`RM${(+prof.price||0).toLocaleString()}`,`RM${prof.built?Math.round((+prof.price)/(+prof.built)):"-"}`,"主体"].map((v,i)=><td key={i} style={{padding:"8px",borderBottom:`1px solid ${C.border}`,color:C.blueTxt,fontWeight:600}}>{v}</td>)}</tr>
+                          {mktRows.map((row,i)=><tr key={i}>{row.map((v,j)=><td key={j} style={{padding:"8px",borderBottom:`1px solid ${C.border}`,color:C.txt}}>{v}</td>)}</tr>)}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <AiBox text={outs.mkt} loading={busy.mkt} msg="生成市场比较数据..." ph="点击按钮生成可比房产数据..."/>
+                </div>
+              )}
+              {subTab.analyze==="risk"&&(
+                <div>
+                  <Btn v="primary" full icon="🛡" onClick={runRisk} disabled={busy.risk} style={{marginBottom:14}}>
+                    {busy.risk?<Spin msg="AI 风险评估中..."/>:"AI 风险评估"}
+                  </Btn>
+                  {riskItems&&riskItems.map((r,i)=>{
+                    const color=r.lv==="low"?C.green:r.lv==="high"?C.red:C.amber;
+                    const bg=r.lv==="low"?C.greenBg:r.lv==="high"?C.redBg:C.amberBg;
+                    const lbl=r.lv==="low"?"低风险":r.lv==="high"?"高风险":"中风险";
+                    return(
+                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:12,padding:14,border:`1.5px solid ${C.border}`,borderRadius:14,marginBottom:8}}>
+                        <span style={{fontSize:12,padding:"4px 10px",borderRadius:20,background:bg,color,border:`1px solid ${color}`,flexShrink:0,marginTop:2,fontWeight:600}}>{lbl}</span>
+                        <div><div style={{fontSize:15,fontWeight:600,color:C.txt,marginBottom:2}}>{r.title}</div><div style={{fontSize:13,color:C.txt2}}>{r.def}</div></div>
+                      </div>
+                    );
+                  })}
+                  <AiBox text={outs.risk} loading={busy.risk} msg="AI 风险评估中..." ph="AI 将从四个维度分析风险..."/>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab==="tools"&&(
+            <div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🧮 分析工具</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:14}}>财务计算 · 生成估价报告</div>
+              <SubNav tabs={TTABS} active={subTab.tools} onChange={v=>setSubTab(s=>({...s,tools:v}))}/>
+              {subTab.tools==="fin"&&(
+                <div>
+                  <Row gap={10}>
+                    <FG label="购买价格 (RM)" half><Input type="number" value={finV.price} onChange={setFv("price")} placeholder="680000" inputMode="numeric"/></FG>
+                    <FG label="月租金 (RM)" half><Input type="number" value={finV.rent} onChange={setFv("rent")} placeholder="2400" inputMode="numeric"/></FG>
+                    <FG label="首付比例 (%)" half><Input type="number" value={finV.down} onChange={setFv("down")} placeholder="10"/></FG>
+                    <FG label="贷款利率 (%)" half><Input type="number" step="0.1" value={finV.rate} onChange={setFv("rate")} placeholder="4.0"/></FG>
+                    <FG label="贷款年限" half><Sel value={finV.years} onChange={setFv("years")}><option value="35">35年</option><option value="30">30年</option><option value="25">25年</option></Sel></FG>
+                    <FG label="月维护费 (RM)" half><Input type="number" value={finV.maint} onChange={setFv("maint")} placeholder="300" inputMode="numeric"/></FG>
+                  </Row>
+                  {finR?(
+                    <>
+                      <div style={{background:C.bg1,border:`1px solid ${C.border}`,borderRadius:16,padding:16}}>
+                        {finR.rows.map(([l,v,color],i)=>(
+                          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"11px 0",borderBottom:i<finR.rows.length-1?`1px solid ${C.border}`:"none",fontSize:14.5}}>
+                            <span style={{color:C.txt2}}>{l}</span>
+                            <span style={{fontWeight:700,color:color||C.txt}}>{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{fontSize:13.5,color:C.txt2,background:C.bg2,borderRadius:12,padding:"12px 14px",marginTop:10,borderLeft:`3px solid ${C.border2}`}}>{finR.tip}</div>
+                    </>
+                  ):<div style={{color:C.txt3,fontSize:14}}>填入购买价格和租金即可实时计算。</div>}
+                </div>
+              )}
+              {subTab.tools==="report"&&(
+                <div>
+                  <Row gap={10} style={{marginBottom:0}}>
+                    <Btn v="primary" full icon="📄" onClick={genReport} disabled={busy.report}>
+                      {busy.report?<Spin msg="生成报告中..."/>:"生成完整估价报告"}
+                    </Btn>
+                    {reportSecs&&<Btn icon="📤" onClick={async()=>{const t=reportSecs.map(s=>`${s.title}\n${s.body}`).join("\n\n");if(navigator.share)await navigator.share({title:"PropVal AI 估价报告",text:t});else if(navigator.clipboard)await navigator.clipboard.writeText(t);}}>分享</Btn>}
+                  </Row>
+                  <div style={{fontSize:12,color:C.txt3,padding:"10px 12px",background:C.bg2,borderRadius:10,marginTop:10,marginBottom:14}}>⚠️ 本报告仅供参考，正式法律用途请委托 LPPEH 持牌估价师。</div>
+                  {busy.report&&<div style={{padding:"16px 0"}}><Spin msg="生成报告中，请稍候..."/></div>}
+                  {reportSecs&&reportSecs.map((s,i)=>(
+                    <div key={i} style={{border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:10}}>
+                      <div style={{fontSize:13,fontWeight:700,color:C.txt2,marginBottom:8}}>{["📋","🏠","📈","🔢","💰","⚠️"][i]||"📌"} {s.title}</div>
+                      <div style={{fontSize:13.5,color:C.txt,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s.body}</div>
+                    </div>
+                  ))}
+                  {!busy.report&&!reportSecs&&<AiBox text={null} ph="保存档案后点击生成完整 LPPEH 框架报告..."/>}
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      <div style={{background:C.bg1,borderTop:`1px solid ${C.border}`,display:"flex",flexShrink:0,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+        {NAV.map(n=>(
+          <button key={n.id} onClick={()=>setTab(n.id)} className="nav-btn" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 4px 8px",background:"none",border:"none",cursor:"pointer",color:tab===n.id?C.blue:C.txt3,transition:"color .15s",fontFamily:"inherit",position:"relative"}}>
+            <span style={{fontSize:22}}>{n.icon}</span>
+            <span style={{fontSize:10.5,fontWeight:tab===n.id?700:400}}>{n.label}</span>
+            {tab===n.id&&<div style={{position:"absolute",top:0,left:"25%",right:"25%",height:2.5,background:C.blue,borderRadius:2}}/>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Remove loading screen and mount app
+document.getElementById("loading").style.display = "none";
+ReactDOM.createRoot(document.getElementById("root")).render(<PropValAI/>);
+
+// Register service worker
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
