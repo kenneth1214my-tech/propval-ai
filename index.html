@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
@@ -27,20 +27,19 @@
 <div id="loading">
   <div class="logo">🏢</div>
   <div class="title">PropVal AI</div>
-  <div class="sub">正在启动...</div>
+  <div class="sub">Loading...</div>
   <div class="bar"><div class="fill"></div></div>
 </div>
 <div id="root"></div>
 
-<!-- React 18 via CDN -->
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<!-- Babel for JSX transpiling (browser-side, no build needed) -->
 <script src="https://unpkg.com/@babel/standalone@7.23.3/babel.min.js"></script>
 
 <script type="text/babel" data-presets="react">
-const { useState, useRef, useCallback } = React;
+const { useState, useRef, useCallback, useMemo } = React;
 
+// ─── COLOURS ────────────────────────────────────────────────────────────────
 const C = {
   bg0:"#0a0c12",bg1:"#111520",bg2:"#171d2e",bg3:"#1e2638",
   border:"#232b40",border2:"#2b3550",
@@ -49,14 +48,242 @@ const C = {
   green:"#30c47e",greenBg:"#082015",greenTxt:"#4adba0",
   amber:"#e6b43a",amberBg:"#1e1808",amberTxt:"#f0cb5e",
   red:"#d84848",redBg:"#220a0a",redTxt:"#f06868",
+  purple:"#9b7ff5",purpleBg:"#1c1638",purpleTxt:"#b8a0ff",
 };
 
+// ─── TRANSLATIONS ────────────────────────────────────────────────────────────
+const LANG_META = {
+  en: { label:"EN", flag:"🇬🇧", name:"English",    aiLang:"English" },
+  zh: { label:"中", flag:"🇨🇳", name:"中文",        aiLang:"Chinese (Simplified)" },
+  ms: { label:"BM", flag:"🇲🇾", name:"Bahasa Melayu", aiLang:"Bahasa Malaysia" },
+};
+
+const T = {
+  en: {
+    appSub:"Malaysia Property Valuation", aiReady:"AI Ready", starting:"Starting...",
+    // nav
+    navSearch:"Search", navUpload:"Upload", navProfile:"Profile", navAnalyze:"Analyse", navTools:"Tools",
+    // search
+    searchTitle:"Property Search", searchSub:"Search PropertyGuru · iProperty · Mudah",
+    area:"Area", propType:"Property Type", status:"Status", minPrice:"Min Price (RM)", maxPrice:"Max Price (RM)", minBeds:"Min Bedrooms",
+    allTypes:"All Types", allStatus:"New + Subsale", newOnly:"New Projects Only", subsaleOnly:"Subsale Only",
+    keywords:"Keywords (optional)", keywordsPh:"e.g. freehold, near school, renovated, below market...",
+    searchBtn:"Search Properties Now", searching:"Searching...", scanMsg:"Scanning PropertyGuru, iProperty, Mudah...",
+    autoSearch:"Enable Auto-Search Every 2 Days", autoSearchOn:"Auto-Search Active (Every 2 Days)",
+    schedTitle:"Scheduled Search Plan", schedTask:"Task", schedNext:"Next",
+    searchFailed:"Search failed:", loadBtn:"Load for Valuation",
+    psf:"PSF", estRent:"Est. Rent", summaryTitle:"Market Summary",
+    // upload
+    uploadTitle:"Upload & Analyse", uploadSub:"Upload multiple photos · PDF documents",
+    dropTitle:"Tap to Select or Drag & Drop", dropSub:"Select multiple files · JPG / PNG / PDF · Max 10MB each",
+    filesSelected:"file(s) selected", photosSelected:"photo(s)",
+    analysisOpts:"Analysis Options", photoOpt:"Photo Condition", defectOpt:"Defect Detection", docOpt:"Document Extract", valOpt:"Valuation Impact",
+    analyseBtn:"AI Analyse All Files", analysingMsg:"Analysing all files...", photoByPhotoMsg:"Analysing photos one by one...",
+    clear:"Clear", analyseResults:"Analysis Results",
+    uploadPh:"Upload photos or documents — AI will assess condition, detect defects, and evaluate valuation impact...",
+    // profile
+    profileTitle:"Property Profile", profileSub:"Enter property details to drive all analysis modules",
+    propAddr:"Property Address", addrPh:"e.g. No.18, Jalan Ros Merah, Taman Johor Jaya, JB",
+    landArea:"Land Area (sqft)", builtUp:"Built-up Area (sqft)", bedrooms:"Bedrooms", bathrooms:"Bathrooms",
+    yearBuilt:"Year Built", askingPrice:"Asking Price (RM)", monthlyRent:"Est. Monthly Rent (RM)", tenure:"Land Tenure",
+    condition:"Condition & Key Features", condPh:"e.g. Renovated kitchen, new air conditioners, near schools...",
+    freehold:"Freehold", leasehold:"Leasehold",
+    saveBtn:"Save Profile", demoBtn:"Demo Data", savedMsg:"✓ Profile saved",
+    select:"Select...", any:"Any",
+    // analyse
+    analyzeTitle:"Property Analysis", analyzeSub:"AI Valuation · Market Comparison · Risk Assessment",
+    valTab:"✨ Valuation", mktTab:"📊 Market", riskTab:"🛡 Risk",
+    estValue:"Estimated Market Value", psfLabel:"Price Per Sq Ft", bankVal:"Est. Bank Valuation",
+    aiAnalysis:"AI Analysis", builtArea:"Built-up Area", conservative:"Conservative",
+    startVal:"Start AI Valuation", valInProgress:"AI Valuation in progress...", valReport:"Valuation Report",
+    valPh:"Save your property profile first, then tap to get a professional AI valuation...",
+    aiMktBtn:"AI Market Comparison", genMktMsg:"Generating comparable data...",
+    address:"Address", price:"Price", notes:"Notes", subject:"Subject",
+    mktPh:"Tap the button to generate comparable property data and market trend analysis...",
+    riskBtn:"AI Risk Assessment", riskInProgress:"AI Risk Assessment in progress...",
+    lowRisk:"Low Risk", medRisk:"Medium Risk", highRisk:"High Risk",
+    physicalRisk:"Structural Risk", physicalDef:"Physical condition & property age",
+    legalRisk:"Legal & Title Risk", legalDef:"Title type & ownership",
+    liquidRisk:"Market Liquidity Risk", liquidDef:"Transaction volume & price volatility",
+    financeRisk:"Financing Risk", financeDef:"Bank valuation gap",
+    riskPh:"AI will evaluate 4 risk dimensions: structural, legal, market liquidity, and financing...",
+    // tools
+    toolsTitle:"Analysis Tools", toolsSub:"Financial Calculator · Generate Report",
+    finTab:"🧮 Financial", reportTab:"📄 Report",
+    purchasePrice:"Purchase Price (RM)", monthlyRental:"Monthly Rental (RM)",
+    downPay:"Down Payment (%)", interestRate:"Interest Rate (% p.a.)", loanTenure:"Loan Tenure",
+    maintenance:"Monthly Maintenance (RM)",
+    yr35:"35 years", yr30:"30 years", yr25:"25 years",
+    downAmt:"Down Payment", loanAmt:"Loan Amount", monthlyRepay:"Monthly Repayment",
+    netCashflow:"Net Monthly Cash Flow", grossYield:"Gross Yield", capRate:"Cap Rate",
+    finPh:"Enter purchase price and rental income to calculate returns in real time.",
+    capTip:"💡 A good Cap Rate in Malaysia is typically 4–6% per year.",
+    genReportBtn:"Generate Full Valuation Report", genReportMsg:"Generating report...", shareBtn:"Share",
+    disclaimer:"⚠️ This report is AI-generated for reference only. For legal purposes, please engage a Registered Valuer (LPPEH).",
+    genWait:"Generating report, please wait...",
+    reportPh:"Save your property profile first, then generate a full 6-section LPPEH-framework valuation report...",
+    secTitles:["Executive Summary","Property Overview","Market Analysis","Valuation Methodology & Conclusion","Investment Value Assessment","Risks & Purchase Recommendations"],
+    posCashflow:(cf,cap)=>`✅ Positive cash flow! Monthly surplus RM ${cf}. Cap Rate ${cap}%${+cap>=4?" — Excellent investment!":""}`,
+    negCashflow:(cf)=>`⚠️ Negative cash flow of RM ${cf}/month. Consider increasing down payment or negotiating price.`,
+    new:"New", subsale:"Subsale",
+    aiValPrompt:(p)=>`You are a Malaysian Registered Valuer (LPPEH). Analyse the following property and provide:\n1.[Valuation Summary] Estimated market value range (RM) and method\n2.[Price Analysis] Whether asking price is fair, overpriced, or underpriced\n3.[PSF Benchmark] Current price per sqft for this area\n4.[Bank Valuation Forecast] Estimated market vs bank valuation gap\n5.[Recommendation] Whether this property is worth buying\nRespond in English. 2-3 sentences per point.\n${p}`,
+    aiMktPrompt:(p)=>`You are a Malaysian Registered Valuer. Provide:\n1. List 3 comparable properties: Comp N: [address]|[built-up sqft]|[price RM]|[RM psf]|[key differences]\n2.[Market Trend] Price movement last 12 months\n3.[Supply & Demand] Current market conditions\n4.[Valuation Adjustment] Recommended adjustment\nRespond in English.\n${p}`,
+    aiRiskPrompt:(p)=>`You are a Malaysian Registered Valuer. Risk assessment across 4 dimensions — each with level (Low/Medium/High) and 2 sentences:\n1.[Structural Risk]\n2.[Legal & Title Risk]\n3.[Market Liquidity Risk]\n4.[Financing Risk]\nFinish with [Overall Risk Rating] and purchase recommendation.\nRespond in English.\n${p}`,
+    aiReportPrompt:(p)=>`You are a Malaysian Registered Valuer. Generate a full valuation report:\n[I. Executive Summary]\n[II. Property Overview]\n[III. Market Analysis]\n[IV. Valuation Methodology & Conclusion]\n[V. Investment Value Assessment]\n[VI. Risks & Purchase Recommendations]\n~100 words per section. Professional tone. Respond in English.\n${p}`,
+    aiSearchPrompt:(s)=>`You are a Malaysian property consultant. List 5 properties with investment potential based on: ${s}\nFor each use this exact format (one line, |-separated):\nProperty N|[address]|[type]|[New/Subsale]|[built-up sqft]|[Xbed Xbath]|[Freehold/Leasehold]|RM[price]|RM[psf]|RM[rent/mo]|[highlights]|[platform]\nAfter 5 properties write "Summary:" then a 2-sentence market summary. Respond in English.`,
+    aiUploadPrompt:(n,tasks)=>`You are a Malaysian Registered Valuer. I uploaded ${n} property photo(s). Analyse each photo and:\n${tasks}\nFor each photo: describe what you see, identify issues or strengths, estimate value impact (+/-RM). Then give [Overall Assessment]: condition rating (Excellent/Good/Fair/Poor) and purchase recommendation. Respond in English.`,
+    aiUploadDocPrompt:(names,tasks)=>`You are a Malaysian Registered Valuer. User uploaded: ${names}. Explain what key information to check in these document types. Tasks: ${tasks}. Respond in English.`,
+  },
+
+  zh: {
+    appSub:"马来西亚房产估价系统", aiReady:"AI就绪", starting:"正在启动...",
+    navSearch:"找房", navUpload:"上传", navProfile:"档案", navAnalyze:"分析", navTools:"工具",
+    searchTitle:"全网找房", searchSub:"搜索 PropertyGuru · iProperty · Mudah",
+    area:"地区", propType:"房产类型", status:"房产状态", minPrice:"最低价格 (RM)", maxPrice:"最高价格 (RM)", minBeds:"最少房间数",
+    allTypes:"所有类型", allStatus:"新屋 + 二手", newOnly:"仅新屋", subsaleOnly:"仅二手",
+    keywords:"关键词（可选）", keywordsPh:"例：永久地契、靠近学校、翻新、低于市价...",
+    searchBtn:"立即全网搜索", searching:"搜索中...", scanMsg:"正在搜索各大房产平台...",
+    autoSearch:"开启每2天自动搜索", autoSearchOn:"已开启定时搜索（每2天）",
+    schedTitle:"定时搜索计划", schedTask:"任务", schedNext:"下次",
+    searchFailed:"搜索失败：", loadBtn:"→ 载入估价",
+    psf:"每尺价", estRent:"月租潜力", summaryTitle:"搜索总结",
+    uploadTitle:"上传分析", uploadSub:"支持多张照片同时上传 · PDF 文件",
+    dropTitle:"点击选择 或 拖放照片", dropSub:"可同时选择多张 · JPG / PNG / PDF · 最大 10MB",
+    filesSelected:"个文件", photosSelected:"张照片",
+    analysisOpts:"分析项目", photoOpt:"照片状况", defectOpt:"缺陷检测", docOpt:"文件提取", valOpt:"估值影响",
+    analyseBtn:"AI 分析全部文件", analysingMsg:"AI 分析所有照片...", photoByPhotoMsg:"AI 正在逐张分析照片...",
+    clear:"清除", analyseResults:"分析结果",
+    uploadPh:"上传照片后 AI 将逐张分析状况、检测缺陷、评估估值影响...",
+    profileTitle:"房产档案", profileSub:"填写房产信息，驱动所有分析模块",
+    propAddr:"房产地址", addrPh:"例：No.18, Jalan Ros Merah, Taman Johor Jaya, JB",
+    landArea:"土地面积 (sqft)", builtUp:"建筑面积 (sqft)", bedrooms:"房间数", bathrooms:"浴室数",
+    yearBuilt:"建造年份", askingPrice:"要求价格 (RM)", monthlyRent:"月租金预估 (RM)", tenure:"地契类型",
+    condition:"装修状况与特点", condPh:"例：翻新厨房、新空调3台、靠近学校...",
+    freehold:"永久地契 (Freehold)", leasehold:"租赁地契 (Leasehold)",
+    saveBtn:"保存档案", demoBtn:"示例数据", savedMsg:"✓ 已保存",
+    select:"选择...", any:"不限",
+    analyzeTitle:"房产分析", analyzeSub:"AI 估值 · 市场比较 · 风险评估",
+    valTab:"✨ 估值", mktTab:"📊 市场", riskTab:"🛡 风险",
+    estValue:"估算市场价值", psfLabel:"每平方尺均价", bankVal:"银行估值（预估）",
+    aiAnalysis:"AI综合分析", builtArea:"建筑面积", conservative:"较市价保守",
+    startVal:"开始 AI 估值", valInProgress:"AI 估值中...", valReport:"估值分析报告",
+    valPh:"保存房产档案后，点击获取专业 AI 估值...",
+    aiMktBtn:"AI 生成市场比较", genMktMsg:"生成比较数据...",
+    address:"地址", price:"成交价", notes:"备注", subject:"主体",
+    mktPh:"点击按钮生成可比房产数据及市场趋势分析...",
+    riskBtn:"AI 风险评估", riskInProgress:"AI 风险评估中...",
+    lowRisk:"低风险", medRisk:"中风险", highRisk:"高风险",
+    physicalRisk:"结构性风险", physicalDef:"房产物理状态与房龄",
+    legalRisk:"法律文件风险", legalDef:"地契类型与产权",
+    liquidRisk:"市场流动性风险", liquidDef:"成交量与价格波动",
+    financeRisk:"融资风险", financeDef:"银行估值差距",
+    riskPh:"AI 将从结构性、法律、市场流动性、融资四个维度分析风险...",
+    toolsTitle:"分析工具", toolsSub:"财务计算 · 生成估价报告",
+    finTab:"🧮 财务", reportTab:"📄 报告",
+    purchasePrice:"购买价格 (RM)", monthlyRental:"月租金收入 (RM)",
+    downPay:"首付比例 (%)", interestRate:"贷款利率 (% 年)", loanTenure:"贷款年限",
+    maintenance:"月维护费 (RM)",
+    yr35:"35年", yr30:"30年", yr25:"25年",
+    downAmt:"首付金额", loanAmt:"贷款金额", monthlyRepay:"每月供款",
+    netCashflow:"月净现金流", grossYield:"毛收益率", capRate:"资本化率 (Cap Rate)",
+    finPh:"填入购买价格和租金后即可实时计算各项财务指标。",
+    capTip:"💡 马来西亚一般良好收益率为每年 4–6%。",
+    genReportBtn:"生成完整估价报告", genReportMsg:"生成报告中...", shareBtn:"分享",
+    disclaimer:"⚠️ 本报告由 AI 生成，仅供参考。正式法律用途请委托持牌估价师（LPPEH）。",
+    genWait:"生成报告中，请稍候...",
+    reportPh:"保存房产档案后点击生成完整 LPPEH 框架六章节估价报告...",
+    secTitles:["执行摘要","房产概况","市场分析","估值方法与结论","投资价值评估","风险与购买建议"],
+    posCashflow:(cf,cap)=>`✅ 正现金流！月盈余 RM ${cf}，Cap Rate ${cap}%${+cap>=4?" — 优质投资！":""}`,
+    negCashflow:(cf)=>`⚠️ 需每月补贴 RM ${cf}。建议提高首付或压低购买价格。`,
+    new:"新屋", subsale:"二手",
+    aiValPrompt:(p)=>`你是马来西亚持牌房产估价师（LPPEH）。分析以下房产，请提供：\n1.【估值摘要】市场价值范围(RM)及方法\n2.【价格分析】要求价是否合理\n3.【每尺参考价】该区域基准\n4.【银行估值预测】与市价差距\n5.【专业建议】是否值得购买\n请用中文回答，每点2-3句。\n${p}`,
+    aiMktPrompt:(p)=>`你是马来西亚持牌估价师。请提供：\n1. 列出3个可比房产：可比N：[地址]|[面积sqft]|[成交价RM]|[每尺RM]|[差异]\n2.【市场趋势】过去12个月\n3.【供需分析】当前状况\n4.【估值调整建议】\n请用中文回答。\n${p}`,
+    aiRiskPrompt:(p)=>`你是马来西亚持牌估价师。风险评估四维度，各给等级（低/中/高风险）+2句说明：\n1.【结构性风险】\n2.【法律文件风险】\n3.【市场流动性风险】\n4.【融资风险】\n最后【综合评级】+购买建议。请用中文回答。\n${p}`,
+    aiReportPrompt:(p)=>`你是马来西亚持牌估价师。生成完整估价报告：\n【一、执行摘要】\n【二、房产概况】\n【三、市场分析】\n【四、估值方法与结论】\n【五、投资价值评估】\n【六、风险与购买建议】\n每节约100字，专业估价师语气，请用中文回答。\n${p}`,
+    aiSearchPrompt:(s)=>`你是马来西亚专业房产顾问。根据以下条件整理5个有潜力的房产：${s}\n每个房产用此格式（一行，|分隔）：\n房产N|[地址]|[类型]|[新屋/二手]|[建筑sqft]|[X房X浴]|[Freehold/Leasehold]|RM[价格]|RM[每尺]|RM[月租]|[亮点]|[平台]\n列出5个后写"总结："加2句市场总结。请用中文回答。`,
+    aiUploadPrompt:(n,tasks)=>`你是马来西亚专业房产估价师。我上传了${n}张房产照片。请逐张分析并执行：\n${tasks}\n每张照片：描述所见、识别问题或优势、估算估值影响(+/-RM)。最后给【总体评估】：状况评级（优/良/一般/差）及购买建议。请用中文回答。`,
+    aiUploadDocPrompt:(names,tasks)=>`你是马来西亚房产估价师。用户上传了：${names}。请说明审查这些文件时应重点检查的内容。任务：${tasks}。请用中文回答。`,
+  },
+
+  ms: {
+    appSub:"Sistem Penilaian Hartanah Malaysia", aiReady:"AI Sedia", starting:"Memuatkan...",
+    navSearch:"Cari", navUpload:"Muat Naik", navProfile:"Profil", navAnalyze:"Analisis", navTools:"Alatan",
+    searchTitle:"Carian Hartanah", searchSub:"Cari PropertyGuru · iProperty · Mudah",
+    area:"Kawasan", propType:"Jenis Hartanah", status:"Status", minPrice:"Harga Min (RM)", maxPrice:"Harga Maks (RM)", minBeds:"Min Bilik Tidur",
+    allTypes:"Semua Jenis", allStatus:"Baru + Subsale", newOnly:"Projek Baru Sahaja", subsaleOnly:"Subsale Sahaja",
+    keywords:"Kata Kunci (pilihan)", keywordsPh:"cth. hak milik kekal, dekat sekolah, renovasi, bawah harga pasaran...",
+    searchBtn:"Cari Hartanah Sekarang", searching:"Mencari...", scanMsg:"Mengimbas PropertyGuru, iProperty, Mudah...",
+    autoSearch:"Aktifkan Carian Auto Setiap 2 Hari", autoSearchOn:"Carian Auto Aktif (Setiap 2 Hari)",
+    schedTitle:"Jadual Carian Automatik", schedTask:"Tugas", schedNext:"Seterusnya",
+    searchFailed:"Carian gagal:", loadBtn:"Muat untuk Penilaian",
+    psf:"Harga/sqft", estRent:"Sewa Anggaran", summaryTitle:"Ringkasan Pasaran",
+    uploadTitle:"Muat Naik & Analisis", uploadSub:"Muat naik pelbagai foto · Dokumen PDF",
+    dropTitle:"Ketik untuk Pilih atau Seret & Lepas", dropSub:"Pilih pelbagai fail · JPG / PNG / PDF · Maks 10MB setiap satu",
+    filesSelected:"fail dipilih", photosSelected:"foto",
+    analysisOpts:"Pilihan Analisis", photoOpt:"Keadaan Foto", defectOpt:"Kesan Kecacatan", docOpt:"Ekstrak Dokumen", valOpt:"Impak Penilaian",
+    analyseBtn:"AI Analisis Semua Fail", analysingMsg:"Menganalisis semua fail...", photoByPhotoMsg:"AI sedang menganalisis foto satu per satu...",
+    clear:"Padam", analyseResults:"Keputusan Analisis",
+    uploadPh:"Muat naik foto atau dokumen — AI akan menilai keadaan, mengesan kecacatan, dan menganggar impak nilai...",
+    profileTitle:"Profil Hartanah", profileSub:"Masukkan butiran hartanah untuk memacu semua modul analisis",
+    propAddr:"Alamat Hartanah", addrPh:"cth. No.18, Jalan Ros Merah, Taman Johor Jaya, JB",
+    landArea:"Luas Tanah (sqft)", builtUp:"Luas Binaan (sqft)", bedrooms:"Bilik Tidur", bathrooms:"Bilik Mandi",
+    yearBuilt:"Tahun Bina", askingPrice:"Harga Jualan (RM)", monthlyRent:"Anggaran Sewa Bulanan (RM)", tenure:"Pegangan Tanah",
+    condition:"Keadaan & Ciri Utama", condPh:"cth. dapur dibaiki semula, penyaman udara baru, berdekatan sekolah...",
+    freehold:"Hak Milik Kekal (Freehold)", leasehold:"Pajakan (Leasehold)",
+    saveBtn:"Simpan Profil", demoBtn:"Data Demo", savedMsg:"✓ Profil disimpan",
+    select:"Pilih...", any:"Mana-mana",
+    analyzeTitle:"Analisis Hartanah", analyzeSub:"Penilaian AI · Perbandingan Pasaran · Penilaian Risiko",
+    valTab:"✨ Nilai", mktTab:"📊 Pasaran", riskTab:"🛡 Risiko",
+    estValue:"Anggaran Nilai Pasaran", psfLabel:"Harga Per Kaki Persegi", bankVal:"Anggaran Nilai Bank",
+    aiAnalysis:"Analisis AI", builtArea:"Luas Binaan", conservative:"Lebih Konservatif",
+    startVal:"Mulakan Penilaian AI", valInProgress:"Penilaian AI sedang berjalan...", valReport:"Laporan Penilaian",
+    valPh:"Simpan profil hartanah dahulu, kemudian ketik untuk mendapatkan penilaian AI profesional...",
+    aiMktBtn:"Perbandingan Pasaran AI", genMktMsg:"Menjana data perbandingan...",
+    address:"Alamat", price:"Harga", notes:"Nota", subject:"Hartanah Ini",
+    mktPh:"Ketik butang untuk menjana data hartanah setanding dan analisis trend pasaran...",
+    riskBtn:"Penilaian Risiko AI", riskInProgress:"Penilaian Risiko AI sedang berjalan...",
+    lowRisk:"Risiko Rendah", medRisk:"Risiko Sederhana", highRisk:"Risiko Tinggi",
+    physicalRisk:"Risiko Struktur", physicalDef:"Keadaan fizikal & usia hartanah",
+    legalRisk:"Risiko Undang-undang & Hakmilik", legalDef:"Jenis geran & pemilikan",
+    liquidRisk:"Risiko Kecairan Pasaran", liquidDef:"Volum transaksi & turun naik harga",
+    financeRisk:"Risiko Pembiayaan", financeDef:"Jurang nilai bank dan pasaran",
+    riskPh:"AI akan menilai 4 dimensi risiko: struktur, undang-undang, kecairan pasaran, dan pembiayaan...",
+    toolsTitle:"Alatan Analisis", toolsSub:"Kalkulator Kewangan · Jana Laporan",
+    finTab:"🧮 Kewangan", reportTab:"📄 Laporan",
+    purchasePrice:"Harga Beli (RM)", monthlyRental:"Sewa Bulanan (RM)",
+    downPay:"Bayaran Pendahuluan (%)", interestRate:"Kadar Faedah (% setahun)", loanTenure:"Tempoh Pinjaman",
+    maintenance:"Penyelenggaraan Bulanan (RM)",
+    yr35:"35 tahun", yr30:"30 tahun", yr25:"25 tahun",
+    downAmt:"Bayaran Pendahuluan", loanAmt:"Jumlah Pinjaman", monthlyRepay:"Bayaran Bulanan",
+    netCashflow:"Aliran Tunai Bersih Bulanan", grossYield:"Hasil Kasar", capRate:"Kadar Kapitalisasi",
+    finPh:"Masukkan harga beli dan pendapatan sewa untuk mengira pulangan secara langsung.",
+    capTip:"💡 Kadar Kapitalisasi yang baik di Malaysia biasanya 4–6% setahun.",
+    genReportBtn:"Jana Laporan Penilaian Penuh", genReportMsg:"Menjana laporan...", shareBtn:"Kongsi",
+    disclaimer:"⚠️ Laporan ini dijana oleh AI untuk rujukan sahaja. Untuk tujuan undang-undang, sila lantik Penilai Berdaftar (LPPEH).",
+    genWait:"Menjana laporan, sila tunggu...",
+    reportPh:"Simpan profil hartanah dahulu, kemudian jana laporan penilaian penuh rangka kerja LPPEH...",
+    secTitles:["Ringkasan Eksekutif","Gambaran Hartanah","Analisis Pasaran","Metodologi & Kesimpulan Penilaian","Penilaian Nilai Pelaburan","Risiko & Cadangan Pembelian"],
+    posCashflow:(cf,cap)=>`✅ Aliran tunai positif! Lebihan bulanan RM ${cf}. Kadar Kapitalisasi ${cap}%${+cap>=4?" — Pelaburan cemerlang!":""}`,
+    negCashflow:(cf)=>`⚠️ Aliran tunai negatif RM ${cf}/bulan. Pertimbangkan untuk menambah bayaran pendahuluan atau berunding harga.`,
+    new:"Baru", subsale:"Subsale",
+    aiValPrompt:(p)=>`Anda adalah Penilai Berdaftar Malaysia (LPPEH). Analisis hartanah berikut dan berikan:\n1.[Ringkasan Penilaian] Julat nilai pasaran anggaran (RM) dan kaedah\n2.[Analisis Harga] Sama ada harga jualan berpatutan, terlalu tinggi, atau rendah\n3.[Penanda Aras PSF] Harga semasa per sqft untuk kawasan ini\n4.[Ramalan Nilai Bank] Perbezaan anggaran nilai pasaran vs bank\n5.[Cadangan] Sama ada hartanah ini berbaloi dibeli\nBerikan jawapan dalam Bahasa Malaysia. 2-3 ayat setiap perkara.\n${p}`,
+    aiMktPrompt:(p)=>`Anda adalah Penilai Berdaftar Malaysia. Berikan:\n1. Senaraikan 3 hartanah setanding: Setanding N: [alamat]|[luas binaan sqft]|[harga RM]|[RM psf]|[perbezaan utama]\n2.[Trend Pasaran] Pergerakan harga 12 bulan lepas\n3.[Penawaran & Permintaan] Keadaan pasaran semasa\n4.[Pelarasan Penilaian] Arah pelarasan yang disyorkan\nBerikan jawapan dalam Bahasa Malaysia.\n${p}`,
+    aiRiskPrompt:(p)=>`Anda adalah Penilai Berdaftar Malaysia. Penilaian risiko 4 dimensi — setiap satu dengan tahap (Rendah/Sederhana/Tinggi) dan 2 ayat:\n1.[Risiko Struktur]\n2.[Risiko Undang-undang & Hakmilik]\n3.[Risiko Kecairan Pasaran]\n4.[Risiko Pembiayaan]\nAkhiri dengan [Penilaian Risiko Keseluruhan] dan cadangan pembelian.\nBerikan jawapan dalam Bahasa Malaysia.\n${p}`,
+    aiReportPrompt:(p)=>`Anda adalah Penilai Berdaftar Malaysia. Jana laporan penilaian penuh:\n[I. Ringkasan Eksekutif]\n[II. Gambaran Hartanah]\n[III. Analisis Pasaran]\n[IV. Metodologi & Kesimpulan Penilaian]\n[V. Penilaian Nilai Pelaburan]\n[VI. Risiko & Cadangan Pembelian]\n~100 patah perkataan setiap bahagian. Nada profesional. Berikan jawapan dalam Bahasa Malaysia.\n${p}`,
+    aiSearchPrompt:(s)=>`Anda adalah perunding hartanah Malaysia. Senaraikan 5 hartanah berpotensi berdasarkan kriteria: ${s}\nGunakan format ini untuk setiap hartanah (satu baris, dipisahkan |):\nHartanah N|[alamat]|[jenis]|[Baru/Subsale]|[luas binaan sqft]|[X bilik X bilik mandi]|[Freehold/Leasehold]|RM[harga]|RM[psf]|RM[sewa/bln]|[sorotan]|[platform]\nSelepas 5 hartanah tulis "Ringkasan:" diikuti 2 ayat ringkasan pasaran. Berikan jawapan dalam Bahasa Malaysia.`,
+    aiUploadPrompt:(n,tasks)=>`Anda adalah Penilai Berdaftar Malaysia. Saya memuat naik ${n} foto hartanah. Analisis setiap foto dan:\n${tasks}\nUntuk setiap foto: huraikan apa yang dilihat, kenal pasti isu atau kekuatan, anggarkan impak nilai (+/-RM). Berikan [Penilaian Keseluruhan]: penilaian keadaan (Cemerlang/Baik/Sederhana/Lemah) dan cadangan pembelian. Berikan jawapan dalam Bahasa Malaysia.`,
+    aiUploadDocPrompt:(names,tasks)=>`Anda adalah Penilai Berdaftar Malaysia. Pengguna memuat naik: ${names}. Terangkan maklumat utama yang perlu disemak dalam jenis dokumen ini. Tugas: ${tasks}. Berikan jawapan dalam Bahasa Malaysia.`,
+  }
+};
+
+// ─── GLOBAL STYLES ────────────────────────────────────────────────────────────
 const GStyle = () => (
   <style>{`
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     @keyframes sp{0%,80%,100%{opacity:.2;transform:scale(.7)}40%{opacity:1;transform:scale(1)}}
     @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
     @keyframes glow{0%,100%{opacity:.4}50%{opacity:1}}
+    @keyframes langPop{from{opacity:0;transform:translateY(-8px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
     input,select,textarea{-webkit-appearance:none;appearance:none}
     input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:${C.border2};border-radius:2px}
@@ -65,9 +292,11 @@ const GStyle = () => (
     .tap:active{opacity:.6;transform:scale(.96)}
     input:focus,select:focus,textarea:focus{outline:none;border-color:${C.blue}!important;box-shadow:0 0 0 3px ${C.blueBg}}
     select option{background:${C.bg2};color:${C.txt}}
+    .lang-picker{animation:langPop .2s ease}
   `}</style>
 );
 
+// ─── BASE COMPONENTS ─────────────────────────────────────────────────────────
 const Input = (p) => <input {...p} style={{background:C.bg2,border:`1.5px solid ${C.border2}`,borderRadius:12,color:C.txt,fontFamily:"inherit",fontSize:15,padding:"12px 14px",width:"100%",...p.style}}/>;
 const Sel = ({children,...p}) => <select {...p} style={{background:C.bg2,border:`1.5px solid ${C.border2}`,borderRadius:12,color:C.txt,fontFamily:"inherit",fontSize:15,padding:"12px 14px",width:"100%",backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%237e8ea8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 12px center",backgroundSize:18,paddingRight:40,...p.style}}>{children}</select>;
 const TA = (p) => <textarea {...p} style={{background:C.bg2,border:`1.5px solid ${C.border2}`,borderRadius:12,color:C.txt,fontFamily:"inherit",fontSize:15,padding:"12px 14px",width:"100%",resize:"none",minHeight:80,...p.style}}/>;
@@ -90,7 +319,7 @@ const Btn = ({children,v="secondary",full,icon,disabled,onClick,style:sx={}}) =>
 );
 
 const AiBox = ({text,loading,msg,ph,style:sx={}}) => {
-  const isErr = text&&(text.startsWith("请求失败")||text.includes("Failed"));
+  const isErr = text&&(text.startsWith("Request failed")||text.startsWith("请求失败")||text.startsWith("Permintaan gagal")||text.includes("Failed"));
   return (
     <div style={{background:C.bg2,border:`1.5px solid ${isErr?C.red:text?C.border2:C.border}`,borderRadius:14,padding:16,minHeight:100,fontSize:14,lineHeight:1.8,color:isErr?C.redTxt:C.txt,whiteSpace:"pre-wrap",...sx}}>
       {loading?<Spin msg={msg}/>:text?text:<span style={{color:C.txt3,fontStyle:"italic",fontSize:13.5}}>{ph}</span>}
@@ -106,7 +335,7 @@ const MC = ({label,value,sub}) => (
   </div>
 );
 
-const Spin = ({msg="AI 分析中..."}) => (
+const Spin = ({msg}) => (
   <div style={{display:"flex",alignItems:"center",gap:8,color:C.txt2,fontSize:13.5}}>
     <span style={{display:"flex",gap:3}}>
       {[0,.2,.4].map((d,i)=><span key={i} style={{width:6,height:6,borderRadius:"50%",background:C.txt3,display:"inline-block",animation:`sp 1.2s ${d}s ease-in-out infinite`}}/>)}
@@ -114,6 +343,7 @@ const Spin = ({msg="AI 分析中..."}) => (
   </div>
 );
 
+// ─── API ─────────────────────────────────────────────────────────────────────
 const callAI = async (messages, max=1000) => {
   const res = await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",headers:{"Content-Type":"application/json"},
@@ -130,26 +360,69 @@ const aiMulti = (imgs,prompt,max=1500) => callAI([{role:"user",content:[
 ]}],max);
 const toB64 = f => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(f);});
 
+// ─── LANGUAGE SWITCHER ───────────────────────────────────────────────────────
+const LangSwitcher = ({lang,setLang}) => {
+  const [open,setOpen] = useState(false);
+  const langs = Object.entries(LANG_META);
+  return (
+    <div style={{position:"relative"}}>
+      <button onClick={()=>setOpen(o=>!o)} className="tap" style={{
+        display:"flex",alignItems:"center",gap:5,padding:"5px 10px",
+        borderRadius:20,border:`1.5px solid ${open?C.blue:C.border2}`,
+        background:open?C.blueBg:C.bg2,cursor:"pointer",fontFamily:"inherit",
+        fontSize:13,fontWeight:600,color:open?C.blueTxt:C.txt2,transition:"all .15s"
+      }}>
+        <span>{LANG_META[lang].flag}</span>
+        <span>{LANG_META[lang].label}</span>
+        <span style={{fontSize:10,opacity:.6}}>{open?"▲":"▼"}</span>
+      </button>
+      {open&&(
+        <div className="lang-picker" style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:C.bg1,border:`1px solid ${C.border2}`,borderRadius:14,overflow:"hidden",zIndex:100,minWidth:160,boxShadow:"0 8px 24px rgba(0,0,0,.4)"}}>
+          {langs.map(([code,meta])=>(
+            <button key={code} onClick={()=>{setLang(code);setOpen(false);}} className="tap" style={{
+              display:"flex",alignItems:"center",gap:10,width:"100%",padding:"12px 16px",
+              background:lang===code?C.blueBg:"transparent",border:"none",cursor:"pointer",
+              fontFamily:"inherit",textAlign:"left",borderBottom:`1px solid ${C.border}`,
+              transition:"background .1s"
+            }}>
+              <span style={{fontSize:20}}>{meta.flag}</span>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:lang===code?C.blueTxt:C.txt}}>{meta.name}</div>
+                <div style={{fontSize:11,color:C.txt3}}>AI responds in {meta.aiLang}</div>
+              </div>
+              {lang===code&&<span style={{marginLeft:"auto",color:C.blue,fontSize:16}}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function PropValAI() {
+  const [lang,setLang] = useState("en");
+  const t = T[lang];
+
   const [tab,setTab]       = useState("search");
   const [subTab,setSubTab] = useState({analyze:"val",tools:"fin"});
   const [busy,setBusy]     = useState({});
   const [outs,setOuts]     = useState({});
-  const [mktRows,setMktRows]     = useState(null);
-  const [riskItems,setRiskItems] = useState(null);
+  const [mktRows,setMktRows]       = useState(null);
+  const [riskItems,setRiskItems]   = useState(null);
   const [reportSecs,setReportSecs] = useState(null);
-  const [searchRes,setSearchRes] = useState(null);
-  const [files,setFiles]   = useState([]);
+  const [searchRes,setSearchRes]   = useState(null);
+  const [files,setFiles]     = useState([]);
   const [previews,setPreviews] = useState([]);
-  const [anOpts,setAnOpts] = useState({photo:true,defect:true,doc:true,val:false});
+  const [anOpts,setAnOpts]   = useState({photo:true,defect:true,doc:true,val:false});
   const [schedOn,setSchedOn] = useState(false);
   const [schedDates,setSchedDates] = useState([]);
-  const [saved,setSaved]   = useState(false);
+  const [saved,setSaved]     = useState(false);
   const [metrics,setMetrics] = useState({val:"—",psf:"—",bank:"—"});
-  const [finV,setFinV]     = useState({price:"",rent:"",down:"10",rate:"4.0",years:"35",maint:"300"});
-  const [finR,setFinR]     = useState(null);
-  const [prof,setProf]     = useState({addr:"",type:"",state:"Johor Bahru, Johor",land:"",built:"",rooms:"",baths:"",year:"",price:"",tenure:"",rent:"",cond:""});
-  const [sF,setSF]         = useState({state:"Johor Bahru, Johor",type:"所有类型",status:"新屋 + 二手",minp:"",maxp:"",kw:""});
+  const [finV,setFinV]       = useState({price:"",rent:"",down:"10",rate:"4.0",years:"35",maint:"300"});
+  const [finR,setFinR]       = useState(null);
+  const [prof,setProf]       = useState({addr:"",type:"",state:"Johor Bahru, Johor",land:"",built:"",rooms:"",baths:"",year:"",price:"",tenure:"",rent:"",cond:""});
+  const [sF,setSF]           = useState({state:"Johor Bahru, Johor",type:"",status:"",minp:"",maxp:"",kw:"",rooms:""});
   const fileRef = useRef();
   const dropRef = useRef();
 
@@ -160,30 +433,30 @@ function PropValAI() {
 
   const run = async (key,prompt,max=1000) => {
     setB(key,true);setO(key,null);
-    try{const t=await aiText(prompt,max);setO(key,t);return t;}
-    catch(e){setO(key,"请求失败："+e.message);return "";}
+    try{const tx=await aiText(prompt,max);setO(key,tx);return tx;}
+    catch(e){setO(key,"Error: "+e.message);return "";}
     finally{setB(key,false);}
   };
 
-  const buildP = useCallback((task) =>
-    `你是马来西亚持牌房产估价师（LPPEH），请用中文分析以下房产，${task}。\n`+
-    `地址：${prof.addr||"未提供"} | 类型：${prof.type||"?"} | 地区：${prof.state||"?"}\n`+
-    `土地：${prof.land||"?"}sqft | 建筑：${prof.built||"?"}sqft | ${prof.rooms||"?"}房${prof.baths||"?"}浴\n`+
-    `建造：${prof.year||"?"}年 | 价格：RM${prof.price||"?"} | 地契：${prof.tenure||"?"}\n`+
-    `月租：RM${prof.rent||"?"} | 状况：${prof.cond||"未提供"}`
+  const profStr = useCallback(()=>
+    `Address: ${prof.addr||"N/A"} | Type: ${prof.type||"?"} | Area: ${prof.state||"?"}\n`+
+    `Land: ${prof.land||"?"}sqft | Built-up: ${prof.built||"?"}sqft | ${prof.rooms||"?"}bed ${prof.baths||"?"}bath\n`+
+    `Built: ${prof.year||"?"}yr | Price: RM${prof.price||"?"} | Tenure: ${prof.tenure||"?"}\n`+
+    `Est. Rent: RM${prof.rent||"?"}/mo | Condition: ${prof.cond||"N/A"}`
   ,[prof]);
 
+  // SEARCH
   const runSearch = async () => {
     setB("search",true);setSearchRes(null);
+    const criteria=`Area:${sF.state}|Type:${sF.type||t.allTypes}|Status:${sF.status||t.allStatus}|Price:RM${sF.minp||"300000"}-${sF.maxp||"1000000"}|Min Beds:${sF.rooms||"any"}|Keywords:${sF.kw||"none"}`;
     try{
-      const text=await aiText(`你是马来西亚专业房产顾问。针对以下条件整理5个有潜力的房产。
-条件：地区:${sF.state}|类型:${sF.type}|状态:${sF.status}|价格:RM${sF.minp||"300000"}-${sF.maxp||"1000000"}|关键词:${sF.kw||"无"}
-每个房产严格用此格式（一行，字段用|分隔）：
-房产N|[地址]|[类型]|[新屋/二手]|[建筑sqft]|[X房X浴]|[Freehold/Leasehold]|RM[价格]|RM[每尺]|RM[月租]|[亮点]|[平台]
-列出5个后写"总结："加市场总结（2句）。`,1400);
-      const lines=text.split("\n").filter(l=>l.match(/^房产\d\|/));
-      const sum=(text.match(/总结[：:](.+)/s)||[])[1]?.trim()||"";
-      setSearchRes({lines,sum});
+      const text=await aiText(t.aiSearchPrompt(criteria),1400);
+      const isZh=lang==="zh";
+      const isBm=lang==="ms";
+      const pattern = isZh ? /^房产\d\|/ : isBm ? /^Hartanah \d\|/i : /^Property \d\|/i;
+      const lines=text.split("\n").filter(l=>l.match(pattern));
+      const sumMatch = isZh ? text.match(/总结[：:](.+)/s) : isBm ? text.match(/Ringkasan[:\s](.+)/s) : text.match(/Summary[:\s](.+)/s);
+      setSearchRes({lines, sum:sumMatch?.[1]?.trim()||""});
     }catch(e){setSearchRes({error:e.message});}
     finally{setB("search",false);}
   };
@@ -196,9 +469,10 @@ function PropValAI() {
 
   const toggleSched = () => {
     const on=!schedOn;setSchedOn(on);
-    if(on){const now=new Date();const fmt=d=>d.toLocaleDateString("zh-CN",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});setSchedDates([1,3,5].map(n=>fmt(new Date(now.getTime()+n*86400000))));}
+    if(on){const now=new Date();const fmt=d=>d.toLocaleDateString("en-MY",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});setSchedDates([1,3,5].map(n=>fmt(new Date(now.getTime()+n*86400000))));}
   };
 
+  // UPLOAD
   const handleFiles = (newFiles) => {
     const valid=Array.from(newFiles).filter(f=>f.size<=10*1024*1024);
     setFiles(prev=>{const m=[...prev];valid.forEach(f=>{if(!m.find(x=>x.name===f.name))m.push(f);});return m;});
@@ -210,21 +484,26 @@ function PropValAI() {
     setB("upload",true);setO("upload",null);
     const imgFiles=files.filter(f=>f.type.startsWith("image/"));
     const docFiles=files.filter(f=>!f.type.startsWith("image/"));
-    const tasks=[anOpts.photo&&"照片房产状况分析",anOpts.defect&&"缺陷检测（漏水/裂缝/装修问题）",anOpts.doc&&"文件内容提取",anOpts.val&&"对估值的影响评估（+/- RM）"].filter(Boolean);
+    const tasks=[
+      anOpts.photo&&`1. ${t.photoOpt}`,
+      anOpts.defect&&`2. ${t.defectOpt}`,
+      anOpts.doc&&`3. ${t.docOpt}`,
+      anOpts.val&&`4. ${t.valOpt}`
+    ].filter(Boolean).join("\n");
     try{
       let text;
       if(imgFiles.length>0){
-        const imgList=await Promise.all(imgFiles.map(async f=>({b64:await toB64(f),mime:f.type,name:f.name})));
-        const docNames=docFiles.map(f=>f.name).join("、");
-        text=await aiMulti(imgList,`你是马来西亚专业房产估价师。我上传了${imgList.length}张房产照片${docNames?`，及文件：${docNames}`:""}，请用中文逐张分析，执行任务：\n${tasks.map((t,i)=>`${i+1}.【${t}】`).join("\n")}\n\n先逐张描述（照片1、照片2…），再综合给出：整体影响(+/-RM)、主要缺陷/优势、建议行动。最后【总体评估】：状况评级（优/良/一般/差）及购买建议。`,1500);
+        const imgList=await Promise.all(imgFiles.map(async f=>({b64:await toB64(f),mime:f.type})));
+        text=await aiMulti(imgList,t.aiUploadPrompt(imgList.length,tasks),1500);
       }else{
-        text=await aiText(`你是马来西亚房产估价师。用户上传了：${docFiles.map(f=>f.name).join("、")}。请用中文说明审查这些文件时应重点检查的内容。任务：${tasks.join("、")}`,900);
+        text=await aiText(t.aiUploadDocPrompt(docFiles.map(f=>f.name).join(", "),tasks),900);
       }
       setO("upload",text);
-    }catch(e){setO("upload","分析失败："+e.message);}
+    }catch(e){setO("upload","Error: "+e.message);}
     finally{setB("upload",false);}
   };
 
+  // PROFILE
   const saveProfile = () => {
     if(prof.price&&prof.built){
       const v=+prof.price,b=+prof.built;
@@ -235,47 +514,56 @@ function PropValAI() {
   };
 
   const fillDemo = () => {
-    const d={addr:"No.18, Jalan Ros Merah 2/16, Taman Johor Jaya, 81100 JB",type:"双层排屋",state:"Johor Bahru, Johor",land:"1650",built:"1800",rooms:"4",baths:"3",year:"2008",price:"680000",tenure:"永久地契 (Freehold)",rent:"2400",cond:"翻新厨房（2020年）、新装空调3台、太阳能热水器，临近 Aeon Tebrau，学区内。"};
-    setProf(d);setMetrics({val:"RM 680,000",psf:"RM 378",bank:"RM 632,000"});
+    setProf({addr:"No.18, Jalan Ros Merah 2/16, Taman Johor Jaya, 81100 JB",type:lang==="zh"?"双层排屋":lang==="ms"?"Teres Dua Tingkat":"Double Storey Terrace",state:"Johor Bahru, Johor",land:"1650",built:"1800",rooms:"4",baths:"3",year:"2008",price:"680000",tenure:lang==="zh"?"永久地契 (Freehold)":lang==="ms"?"Hak Milik Kekal (Freehold)":"Freehold",rent:"2400",cond:lang==="zh"?"翻新厨房（2020年）、新装空调3台、太阳能热水器，临近 Aeon Tebrau，学区内。":lang==="ms"?"Dapur dibaiki semula (2020), 3 penghawa dingin baharu, pemanas air solar, berhampiran Aeon Tebrau, kawasan sekolah.":"Renovated kitchen (2020), 3 new air conditioners, solar water heater. Near Aeon Tebrau, within school catchment area."});
+    setMetrics({val:"RM 680,000",psf:"RM 378",bank:"RM 632,000"});
     const nf={...finV,price:"680000",rent:"2400"};setFinV(nf);calcFin(nf);
     setSaved(true);setTimeout(()=>setSaved(false),2000);
   };
 
+  // AI RUNS
   const runVal = async () => {
-    const t=await run("val",buildP("请提供：\n1.【估值摘要】市场价值范围(RM)及方法\n2.【价格分析】要求价是否合理\n3.【每尺参考价】该区域基准\n4.【银行估值预测】与市价差距\n5.【专业建议】是否值得购买，各2-3句"),1000);
-    if(t&&prof.price&&prof.built){const v=+prof.price,b=+prof.built;setMetrics({val:"RM "+(Math.round(v/5000)*5000).toLocaleString(),psf:"RM "+Math.round(v/b),bank:"RM "+(Math.round(v*.93/1000)*1000).toLocaleString()});}
+    const tx=await run("val",t.aiValPrompt(profStr()),1000);
+    if(tx&&prof.price&&prof.built){const v=+prof.price,b=+prof.built;setMetrics({val:"RM "+(Math.round(v/5000)*5000).toLocaleString(),psf:"RM "+Math.round(v/b),bank:"RM "+(Math.round(v*.93/1000)*1000).toLocaleString()});}
   };
 
   const runMkt = async () => {
     setMktRows(null);
-    const t=await run("mkt",buildP("1.列出3个可比房产，每个一行：可比N：[地址]|[面积sqft]|[成交价RM]|[每尺RM]|[差异]\n2.【市场趋势】过去12个月\n3.【供需分析】\n4.【估值调整建议】"),1000);
-    if(!t)return;
-    const lines=t.split("\n").filter(l=>l.includes("可比")&&l.includes("|"));
-    if(lines.length)setMktRows(lines.slice(0,3).map(l=>l.split("|").map(s=>s.replace(/可比\d：/,"").trim())));
+    const tx=await run("mkt",t.aiMktPrompt(profStr()),1000);
+    if(!tx)return;
+    const lines=tx.split("\n").filter(l=>l.match(/^(Comp|可比|Setanding)\s?\d/i)&&l.includes("|"));
+    if(lines.length)setMktRows(lines.slice(0,3).map(l=>l.replace(/^(Comp|可比|Setanding)\s?\d[:\s]*/i,"").split("|").map(s=>s.trim())));
   };
 
   const runRisk = async () => {
     setRiskItems(null);
-    const t=await run("risk",buildP("风险评估四维度，各给等级（低/中/高风险）+2句：\n1.【结构性风险】\n2.【法律文件风险】\n3.【市场流动性风险】\n4.【融资风险】\n最后【综合评级】+购买建议"),1000);
-    if(!t)return;
-    const risks=["结构性风险","法律文件风险","市场流动性风险","融资风险"];
-    const defs=["物理状态与房龄","地契及产权","成交量与波动","银行估值差距"];
-    setRiskItems(risks.map((r,i)=>{
-      const line=t.split("\n").find(l=>l.includes(r))||"";
-      const lv=line.includes("低风险")?"low":line.includes("高风险")?"high":"med";
-      return{title:r,def:defs[i],lv};
+    const tx=await run("risk",t.aiRiskPrompt(profStr()),1000);
+    if(!tx)return;
+    setRiskItems([
+      {title:t.physicalRisk,def:t.physicalDef,key:"struct"},
+      {title:t.legalRisk,def:t.legalDef,key:"legal"},
+      {title:t.liquidRisk,def:t.liquidDef,key:"liquid"},
+      {title:t.financeRisk,def:t.financeDef,key:"fin"},
+    ].map(r=>{
+      const lw=tx.toLowerCase();
+      const idx=lw.indexOf(r.title.toLowerCase().split(" ")[0]);
+      const section=idx>=0?lw.slice(idx,idx+120):"";
+      const lv=section.includes(lang==="zh"?"低风险":lang==="ms"?"rendah":"low")?"low"
+        :section.includes(lang==="zh"?"高风险":lang==="ms"?"tinggi":"high")?"high":"med";
+      return{...r,lv};
     }));
   };
 
   const genReport = async () => {
     setReportSecs(null);
-    const t=await run("report",buildP("生成完整估价报告，包含：\n【一、执行摘要】\n【二、房产概况】\n【三、市场分析】\n【四、估值方法与结论】\n【五、投资价值评估】\n【六、风险与购买建议】\n每节约100字，专业估价师语气。"),1500);
-    if(!t)return;
-    const parts=t.split(/【[一二三四五六]、/);
-    const titles=["执行摘要","房产概况","市场分析","估值方法与结论","投资价值评估","风险与购买建议"];
-    if(parts.length>1)setReportSecs(parts.slice(1).map((p,i)=>({title:titles[i]||`章节${i+1}`,body:p.replace("】","").trim()})));
+    const tx=await run("report",t.aiReportPrompt(profStr()),1500);
+    if(!tx)return;
+    const pattern = lang==="zh" ? /【[一二三四五六]、/ : /\[(?:I{1,3}V?|VI?|VII?)\.?\s/;
+    const parts=tx.split(pattern);
+    if(parts.length>1){setReportSecs(parts.slice(1).map((p,i)=>({title:t.secTitles[i]||`${i+1}`,body:p.replace(/[】\]]/,"").trim()})));}
+    else{setReportSecs([{title:t.secTitles[0],body:tx}]);}
   };
 
+  // FINANCIAL
   const setFv = k => e => {const nf={...finV,[k]:e.target.value};setFinV(nf);calcFin(nf);};
   const calcFin = (f=finV) => {
     const price=+f.price||0,rent=+f.rent||0,down=+f.down||10,rate=+f.rate||4,years=+f.years||35,maint=+f.maint||300;
@@ -284,107 +572,116 @@ function PropValAI() {
     const mo=loan*(r*Math.pow(1+r,n))/(Math.pow(1+r,n)-1);
     const cf=rent-mo-maint,gy=rent*12/price*100,cap=(rent-maint)*12/price*100;
     setFinR({
-      rows:[["首付金额","RM "+Math.round(da).toLocaleString(),null],["贷款金额","RM "+Math.round(loan).toLocaleString(),null],["每月供款","RM "+Math.round(mo).toLocaleString()+"/月",null],["月净现金流","RM "+Math.round(cf).toLocaleString()+"/月",cf>=0?C.greenTxt:C.redTxt],["毛收益率",gy.toFixed(2)+"%/年",null],["Cap Rate",cap.toFixed(2)+"%/年",cap>=4?C.greenTxt:cap>=2.5?C.amberTxt:C.redTxt]],
-      tip:cf>=0?`✅ 正现金流！月盈余 RM ${Math.round(cf).toLocaleString()}，Cap Rate ${cap.toFixed(2)}%${cap>=4?" — 优质投资！":""}`:`⚠️ 需每月补贴 RM ${Math.round(Math.abs(cf)).toLocaleString()}。建议提高首付或压低价格。`
+      rows:[[t.downAmt,"RM "+Math.round(da).toLocaleString(),null],[t.loanAmt,"RM "+Math.round(loan).toLocaleString(),null],[t.monthlyRepay,"RM "+Math.round(mo).toLocaleString()+"/mo",null],[t.netCashflow,"RM "+Math.round(cf).toLocaleString()+"/mo",cf>=0?C.greenTxt:C.redTxt],[t.grossYield,gy.toFixed(2)+"%",null],[t.capRate,cap.toFixed(2)+"%",cap>=4?C.greenTxt:cap>=2.5?C.amberTxt:C.redTxt]],
+      tip:cf>=0?t.posCashflow(Math.round(cf).toLocaleString(),cap.toFixed(2)):t.negCashflow(Math.round(Math.abs(cf)).toLocaleString())
     });
   };
 
-  const NAV = [{id:"search",icon:"🌐",label:"找房"},{id:"upload",icon:"📁",label:"上传"},{id:"profile",icon:"🏠",label:"档案"},{id:"analyze",icon:"✨",label:"分析"},{id:"tools",icon:"🧮",label:"工具"}];
-  const ATABS = [{id:"val",label:"✨ 估值"},{id:"mkt",label:"📊 市场"},{id:"risk",label:"🛡 风险"}];
-  const TTABS = [{id:"fin",label:"🧮 财务"},{id:"report",label:"📄 报告"}];
+  const NAV=[{id:"search",icon:"🌐",label:t.navSearch},{id:"upload",icon:"📁",label:t.navUpload},{id:"profile",icon:"🏠",label:t.navProfile},{id:"analyze",icon:"✨",label:t.navAnalyze},{id:"tools",icon:"🧮",label:t.navTools}];
+  const ATABS=[{id:"val",label:t.valTab},{id:"mkt",label:t.mktTab},{id:"risk",label:t.riskTab}];
+  const TTABS=[{id:"fin",label:t.finTab},{id:"report",label:t.reportTab}];
+  const AREAS=["Johor Bahru, Johor","Kuala Lumpur","Petaling Jaya, Selangor","Penang","Ipoh, Perak","Kota Kinabalu, Sabah"];
 
   const SubNav = ({tabs,active,onChange}) => (
     <div style={{display:"flex",background:C.bg2,borderRadius:12,padding:4,marginBottom:16,gap:2}}>
-      {tabs.map(t=>(
-        <button key={t.id} onClick={()=>onChange(t.id)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:9,border:"none",background:active===t.id?C.bg0:"transparent",color:active===t.id?C.txt:C.txt3,fontSize:13,fontWeight:active===t.id?600:400,cursor:"pointer",fontFamily:"inherit"}}>{t.label}</button>
-      ))}
+      {tabs.map(tx=><button key={tx.id} onClick={()=>onChange(tx.id)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:9,border:"none",background:active===tx.id?C.bg0:"transparent",color:active===tx.id?C.txt:C.txt3,fontSize:13,fontWeight:active===tx.id?600:400,cursor:"pointer",fontFamily:"inherit"}}>{tx.label}</button>)}
     </div>
   );
 
   return (
     <div style={{fontFamily:"system-ui,-apple-system,sans-serif",background:C.bg0,color:C.txt,height:"100vh",display:"flex",flexDirection:"column",maxWidth:768,margin:"0 auto"}}>
       <GStyle/>
-      <div style={{background:C.bg1,borderBottom:`1px solid ${C.border}`,padding:"10px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+
+      {/* TOP BAR */}
+      <div style={{background:C.bg1,borderBottom:`1px solid ${C.border}`,padding:"9px 14px",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
         <span style={{fontSize:20}}>🏢</span>
-        <span style={{fontSize:15,fontWeight:700}}>PropVal AI</span>
-        <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:C.greenBg,color:C.greenTxt,border:`1px solid ${C.green}`}}>马来西亚房产估价</span>
-        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5}}>
-          <div style={{width:7,height:7,borderRadius:"50%",background:C.green,boxShadow:`0 0 8px ${C.green}`,animation:"glow 2s infinite"}}/>
-          <span style={{fontSize:11,color:C.txt3}}>AI就绪</span>
+        <div>
+          <div style={{fontSize:14,fontWeight:700,lineHeight:1.1}}>PropVal AI</div>
+          <div style={{fontSize:10,color:C.txt3}}>{t.appSub}</div>
+        </div>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:4}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:C.green,animation:"glow 2s infinite"}}/>
+            <span style={{fontSize:10.5,color:C.txt3}}>{t.aiReady}</span>
+          </div>
+          <LangSwitcher lang={lang} setLang={setLang}/>
         </div>
       </div>
 
+      {/* BODY */}
       <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}} className="page-enter">
         <div style={{padding:"16px 16px 20px"}}>
 
+          {/* ── SEARCH ── */}
           {tab==="search"&&(
             <div>
-              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🌐 全网找房</div>
-              <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>搜索 PropertyGuru · iProperty · Mudah</div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🌐 {t.searchTitle}</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>{t.searchSub}</div>
               <Row gap={10}>
-                <FG label="地区" half><Sel value={sF.state} onChange={setSv("state")}>{["Johor Bahru, Johor","Kuala Lumpur","Petaling Jaya, Selangor","Penang","Ipoh, Perak","Kota Kinabalu, Sabah"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
-                <FG label="类型" half><Sel value={sF.type} onChange={setSv("type")}>{["所有类型","双层排屋","单层排屋","公寓/Condo","半独立式","独立式"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
-                <FG label="最低价 (RM)" half><Input type="number" value={sF.minp} onChange={setSv("minp")} placeholder="300000" inputMode="numeric"/></FG>
-                <FG label="最高价 (RM)" half><Input type="number" value={sF.maxp} onChange={setSv("maxp")} placeholder="1000000" inputMode="numeric"/></FG>
+                <FG label={t.area} half><Sel value={sF.state} onChange={setSv("state")}>{AREAS.map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label={t.propType} half><Sel value={sF.type} onChange={setSv("type")}><option value="">{t.allTypes}</option>{["Double Storey Terrace","Single Storey Terrace","Condominium","Semi-Detached","Bungalow"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label={t.status} half><Sel value={sF.status} onChange={setSv("status")}><option value="">{t.allStatus}</option><option value="new">{t.newOnly}</option><option value="subsale">{t.subsaleOnly}</option></Sel></FG>
+                <FG label={t.minBeds} half><Sel value={sF.rooms} onChange={setSv("rooms")}><option value="">{t.any}</option><option value="2">2+</option><option value="3">3+</option><option value="4">4+</option></Sel></FG>
+                <FG label={t.minPrice} half><Input type="number" value={sF.minp} onChange={setSv("minp")} placeholder="300000" inputMode="numeric"/></FG>
+                <FG label={t.maxPrice} half><Input type="number" value={sF.maxp} onChange={setSv("maxp")} placeholder="1000000" inputMode="numeric"/></FG>
               </Row>
-              <FG label="关键词" style={{marginBottom:16}}><Input value={sF.kw} onChange={setSv("kw")} placeholder="永久地契、靠近学校、低于市价..."/></FG>
+              <FG label={t.keywords} style={{marginBottom:16}}><Input value={sF.kw} onChange={setSv("kw")} placeholder={t.keywordsPh}/></FG>
               <Btn v="primary" full icon="🔍" onClick={runSearch} disabled={busy.search} style={{marginBottom:10}}>
-                {busy.search?<Spin msg="搜索中..."/>:"立即全网搜索"}
+                {busy.search?<Spin msg={t.searching}/>:t.searchBtn}
               </Btn>
               <Btn onClick={toggleSched} full icon="⏰" style={{marginBottom:16,borderColor:schedOn?C.green:C.border2,color:schedOn?C.greenTxt:C.txt}}>
-                {schedOn?"已开启定时搜索（每2天）":"开启每2天自动搜索"}
+                {schedOn?t.autoSearchOn:t.autoSearch}
               </Btn>
               {schedOn&&(
                 <div style={{background:C.bg1,border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:16}}>
-                  <div style={{fontSize:13,fontWeight:600,color:C.txt2,marginBottom:10}}>📅 定时搜索计划</div>
+                  <div style={{fontSize:13,fontWeight:600,color:C.txt2,marginBottom:10}}>📅 {t.schedTitle}</div>
                   {schedDates.map((d,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<2?`1px solid ${C.border}`:"none"}}>
                       <div style={{width:8,height:8,borderRadius:"50%",background:i===0?C.green:C.border2,flexShrink:0}}/>
-                      <span style={{fontSize:14,color:C.txt}}>任务 #{i+1}</span>
+                      <span style={{fontSize:14,color:C.txt}}>{t.schedTask} #{i+1}</span>
                       <span style={{marginLeft:"auto",fontSize:12.5,color:C.txt3}}>{d}</span>
-                      {i===0&&<span style={{fontSize:10.5,padding:"2px 7px",borderRadius:20,background:C.greenBg,color:C.greenTxt,border:`1px solid ${C.green}`}}>下次</span>}
+                      {i===0&&<span style={{fontSize:10.5,padding:"2px 7px",borderRadius:20,background:C.greenBg,color:C.greenTxt,border:`1px solid ${C.green}`}}>{t.schedNext}</span>}
                     </div>
                   ))}
                 </div>
               )}
-              {busy.search&&<div style={{padding:"20px 0"}}><Spin msg="正在搜索各大房产平台..."/></div>}
-              {searchRes?.error&&<div style={{background:C.redBg,border:`1px solid ${C.red}`,borderRadius:12,padding:14,color:C.redTxt,fontSize:14}}>搜索失败：{searchRes.error}</div>}
+              {busy.search&&<div style={{padding:"20px 0"}}><Spin msg={t.scanMsg}/></div>}
+              {searchRes?.error&&<div style={{background:C.redBg,border:`1px solid ${C.red}`,borderRadius:12,padding:14,color:C.redTxt,fontSize:14}}>{t.searchFailed} {searchRes.error}</div>}
               {searchRes?.lines?.map((line,i)=>{
-                const p=line.split("|");const isNew=p[3]?.includes("新屋");
+                const p=line.split("|");const isNew=p[3]?.toLowerCase().includes("new")||p[3]?.includes("新屋")||p[3]?.includes("Baru");
                 return(
                   <div key={i} style={{background:C.bg1,border:`1px solid ${C.border}`,borderRadius:16,padding:16,marginBottom:10}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:8}}>
                       <div style={{fontSize:15,fontWeight:600,color:C.txt,flex:1,lineHeight:1.3}}>{p[1]?.trim()}</div>
-                      <span style={{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,background:isNew?C.greenBg:C.amberBg,color:isNew?C.greenTxt:C.amberTxt,border:`1px solid ${isNew?C.green:C.amber}`}}>{isNew?"新屋":"二手"}</span>
+                      <span style={{fontSize:11,padding:"3px 8px",borderRadius:20,flexShrink:0,background:isNew?C.greenBg:C.amberBg,color:isNew?C.greenTxt:C.amberTxt,border:`1px solid ${isNew?C.green:C.amber}`}}>{isNew?t.new:t.subsale}</span>
                     </div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
-                      {[p[2],p[4],p[5],p[6]].filter(Boolean).map((t,j)=>(
-                        <span key={j} style={{fontSize:11.5,padding:"3px 9px",borderRadius:20,background:C.bg3,color:C.txt2,border:`1px solid ${C.border2}`}}>{t.trim()}</span>
-                      ))}
+                      {[p[2],p[4],p[5],p[6]].filter(Boolean).map((tx,j)=><span key={j} style={{fontSize:11.5,padding:"3px 9px",borderRadius:20,background:C.bg3,color:C.txt2,border:`1px solid ${C.border2}`}}>{tx.trim()}</span>)}
                     </div>
                     <div style={{fontSize:20,fontWeight:700,color:C.blueTxt,marginBottom:4}}>{p[7]?.trim()}</div>
-                    <div style={{fontSize:12.5,color:C.txt3,marginBottom:8}}>每尺 {p[8]?.trim()} · 月租潜力 {p[9]?.trim()}</div>
+                    <div style={{fontSize:12.5,color:C.txt3,marginBottom:8}}>{t.psf}: {p[8]?.trim()} · {t.estRent}: {p[9]?.trim()}</div>
                     {p[10]&&<div style={{fontSize:13.5,color:C.txt2,lineHeight:1.5,marginBottom:12}}>✦ {p[10].trim()}</div>}
-                    <Btn v="green" onClick={()=>loadToProfile(line)} icon="→">载入估价</Btn>
+                    <Btn v="green" onClick={()=>loadToProfile(line)} icon="→">{t.loadBtn}</Btn>
                   </div>
                 );
               })}
-              {searchRes?.sum&&<><Sec>搜索总结</Sec><AiBox text={searchRes.sum} ph=""/></>}
+              {searchRes?.sum&&<><Sec>{t.summaryTitle}</Sec><AiBox text={searchRes.sum} ph=""/></>}
             </div>
           )}
 
+          {/* ── UPLOAD ── */}
           {tab==="upload"&&(
             <div>
-              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>📁 上传分析</div>
-              <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>支持多张照片同时上传 · PDF 文件</div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>📁 {t.uploadTitle}</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>{t.uploadSub}</div>
               <div ref={dropRef} onClick={()=>fileRef.current?.click()}
                 onDragOver={e=>{e.preventDefault();dropRef.current.style.borderColor=C.blue}}
                 onDragLeave={()=>dropRef.current.style.borderColor=C.border2}
                 onDrop={e=>{e.preventDefault();dropRef.current.style.borderColor=C.border2;handleFiles(e.dataTransfer.files)}}
                 style={{border:`2px dashed ${C.border2}`,borderRadius:16,padding:"28px 20px",textAlign:"center",cursor:"pointer",marginBottom:14,transition:"border-color .2s"}}>
                 <div style={{fontSize:40,marginBottom:8}}>📸</div>
-                <div style={{fontSize:15,fontWeight:600,color:C.txt,marginBottom:4}}>点击选择 或 拖放照片</div>
-                <div style={{fontSize:13,color:C.txt3}}>可同时选择多张 · JPG / PNG / PDF · 最大 10MB</div>
+                <div style={{fontSize:15,fontWeight:600,color:C.txt,marginBottom:4}}>{t.dropTitle}</div>
+                <div style={{fontSize:13,color:C.txt3}}>{t.dropSub}</div>
               </div>
               <input ref={fileRef} type="file" multiple accept="image/*,.pdf" style={{display:"none"}} onChange={e=>handleFiles(e.target.files)}/>
               {previews.length>0&&(
@@ -397,10 +694,18 @@ function PropValAI() {
                   ))}
                 </div>
               )}
-              {files.length>0&&<div style={{fontSize:13,color:C.greenTxt,marginBottom:12,padding:"8px 12px",background:C.greenBg,borderRadius:10,border:`1px solid ${C.green}`}}>✓ 已选 {files.length} 个文件（{files.filter(f=>f.type.startsWith("image/")).length} 张照片）</div>}
-              <Sec>分析项目</Sec>
+              {files.filter(f=>!f.type.startsWith("image/")).map((f,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",background:C.bg2,borderRadius:12,marginBottom:7,border:`1px solid ${C.border}`}}>
+                  <span style={{fontSize:22}}>📄</span>
+                  <span style={{flex:1,fontSize:13.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</span>
+                  <span style={{fontSize:12,color:C.txt3}}>{f.size>1048576?(f.size/1048576).toFixed(1)+"MB":(f.size/1024).toFixed(0)+"KB"}</span>
+                  <button onClick={()=>{setFiles(fs=>fs.filter((_,j)=>j!==i));setPreviews(ps=>ps.filter(p=>p.name!==f.name));}} style={{background:"none",border:"none",color:C.txt3,cursor:"pointer",fontSize:20,padding:"2px 6px"}}>✕</button>
+                </div>
+              ))}
+              {files.length>0&&<div style={{fontSize:13,color:C.greenTxt,marginBottom:12,padding:"8px 12px",background:C.greenBg,borderRadius:10,border:`1px solid ${C.green}`}}>✓ {files.length} {t.filesSelected} ({files.filter(f=>f.type.startsWith("image/")).length} {t.photosSelected})</div>}
+              <Sec>{t.analysisOpts}</Sec>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-                {[["photo","📷","照片状况"],["defect","🔍","缺陷检测"],["doc","📄","文件提取"],["val","💰","估值影响"]].map(([k,ic,l])=>(
+                {[["photo","📷",t.photoOpt],["defect","🔍",t.defectOpt],["doc","📄",t.docOpt],["val","💰",t.valOpt]].map(([k,ic,l])=>(
                   <label key={k} onClick={()=>setAnOpts(o=>({...o,[k]:!o[k]}))} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",borderRadius:12,border:`1.5px solid ${anOpts[k]?C.blue:C.border2}`,background:anOpts[k]?C.blueBg:C.bg2,cursor:"pointer",transition:"all .15s"}}>
                     <span style={{fontSize:18}}>{ic}</span>
                     <span style={{fontSize:14,color:anOpts[k]?C.blueTxt:C.txt2,fontWeight:anOpts[k]?600:400}}>{l}</span>
@@ -409,87 +714,89 @@ function PropValAI() {
               </div>
               <Row gap={10}>
                 <Btn v="primary" full icon="✨" onClick={analyzeFiles} disabled={busy.upload||!files.length}>
-                  {busy.upload?<Spin msg="AI 分析所有照片..."/>:"AI 分析全部文件"}
+                  {busy.upload?<Spin msg={t.analysingMsg}/>:t.analyseBtn}
                 </Btn>
-                {files.length>0&&<Btn icon="🗑" onClick={()=>{setFiles([]);setPreviews([]);setO("upload",null);}}>清除</Btn>}
+                {files.length>0&&<Btn icon="🗑" onClick={()=>{setFiles([]);setPreviews([]);setO("upload",null);}}>{t.clear}</Btn>}
               </Row>
-              <Sec>分析结果</Sec>
-              <AiBox text={outs.upload} loading={busy.upload} msg="AI 正在逐张分析照片..." ph="上传照片后 AI 将逐张分析状况、缺陷、估值影响..."/>
+              <Sec>{t.analyseResults}</Sec>
+              <AiBox text={outs.upload} loading={busy.upload} msg={t.photoByPhotoMsg} ph={t.uploadPh}/>
             </div>
           )}
 
+          {/* ── PROFILE ── */}
           {tab==="profile"&&(
             <div>
-              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🏠 房产档案</div>
-              <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>填写信息，驱动所有分析模块</div>
-              <FG label="房产地址" style={{marginBottom:12}}><Input value={prof.addr} onChange={setP("addr")} placeholder="例：No.18, Jalan Ros Merah, Taman Johor Jaya, JB"/></FG>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🏠 {t.profileTitle}</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:16}}>{t.profileSub}</div>
+              <FG label={t.propAddr} style={{marginBottom:12}}><Input value={prof.addr} onChange={setP("addr")} placeholder={t.addrPh}/></FG>
               <Row gap={10}>
-                <FG label="房产类型" half><Sel value={prof.type} onChange={setP("type")}><option value="">选择...</option>{["单层排屋","双层排屋","半独立式","独立式洋房","公寓/Condo","服务式公寓"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
-                <FG label="地区" half><Sel value={prof.state} onChange={setP("state")}>{["Johor Bahru, Johor","Kuala Lumpur","Petaling Jaya, Selangor","Penang","Ipoh, Perak"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
-                <FG label="土地面积 (sqft)" half><Input type="number" value={prof.land} onChange={setP("land")} placeholder="1650" inputMode="numeric"/></FG>
-                <FG label="建筑面积 (sqft)" half><Input type="number" value={prof.built} onChange={setP("built")} placeholder="1800" inputMode="numeric"/></FG>
-                <FG label="房间数" half><Sel value={prof.rooms} onChange={setP("rooms")}><option value="">选择...</option>{["2","3","3+1","4","4+1","5+"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
-                <FG label="浴室数" half><Sel value={prof.baths} onChange={setP("baths")}><option value="">选择...</option>{["1","2","3","4"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
-                <FG label="建造年份" half><Input type="number" value={prof.year} onChange={setP("year")} placeholder="2008" inputMode="numeric"/></FG>
-                <FG label="要求价格 (RM)" half><Input type="number" value={prof.price} onChange={setP("price")} placeholder="680000" inputMode="numeric"/></FG>
-                <FG label="月租金 (RM)" half><Input type="number" value={prof.rent} onChange={setP("rent")} placeholder="2400" inputMode="numeric"/></FG>
-                <FG label="地契类型" half><Sel value={prof.tenure} onChange={setP("tenure")}><option value="">选择...</option><option>永久地契 (Freehold)</option><option>租赁地契 (Leasehold)</option></Sel></FG>
+                <FG label={t.propType} half><Sel value={prof.type} onChange={setP("type")}><option value="">{t.select}</option>{["Single Storey Terrace","Double Storey Terrace","Semi-Detached","Bungalow","Condominium","Serviced Apartment"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label={t.area} half><Sel value={prof.state} onChange={setP("state")}>{AREAS.map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label={t.landArea} half><Input type="number" value={prof.land} onChange={setP("land")} placeholder="1650" inputMode="numeric"/></FG>
+                <FG label={t.builtUp} half><Input type="number" value={prof.built} onChange={setP("built")} placeholder="1800" inputMode="numeric"/></FG>
+                <FG label={t.bedrooms} half><Sel value={prof.rooms} onChange={setP("rooms")}><option value="">{t.select}</option>{["2","3","3+1","4","4+1","5+"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label={t.bathrooms} half><Sel value={prof.baths} onChange={setP("baths")}><option value="">{t.select}</option>{["1","2","3","4"].map(s=><option key={s}>{s}</option>)}</Sel></FG>
+                <FG label={t.yearBuilt} half><Input type="number" value={prof.year} onChange={setP("year")} placeholder="2008" inputMode="numeric"/></FG>
+                <FG label={t.askingPrice} half><Input type="number" value={prof.price} onChange={setP("price")} placeholder="680000" inputMode="numeric"/></FG>
+                <FG label={t.monthlyRent} half><Input type="number" value={prof.rent} onChange={setP("rent")} placeholder="2400" inputMode="numeric"/></FG>
+                <FG label={t.tenure} half><Sel value={prof.tenure} onChange={setP("tenure")}><option value="">{t.select}</option><option>{t.freehold}</option><option>{t.leasehold}</option></Sel></FG>
               </Row>
-              <FG label="装修状况与特点" style={{marginBottom:16}}><TA value={prof.cond} onChange={setP("cond")} placeholder="例：翻新厨房、新空调3台、靠近学校..."/></FG>
+              <FG label={t.condition} style={{marginBottom:16}}><TA value={prof.cond} onChange={setP("cond")} placeholder={t.condPh}/></FG>
               <Row gap={10}>
-                <Btn v="primary" full icon="✓" onClick={saveProfile}>保存档案</Btn>
-                <Btn icon="🪄" onClick={fillDemo}>示例</Btn>
+                <Btn v="primary" full icon="✓" onClick={saveProfile}>{t.saveBtn}</Btn>
+                <Btn icon="🪄" onClick={fillDemo}>{t.demoBtn}</Btn>
               </Row>
-              {saved&&<div style={{textAlign:"center",color:C.greenTxt,fontSize:14,marginTop:10}}>✓ 档案已保存</div>}
+              {saved&&<div style={{textAlign:"center",color:C.greenTxt,fontSize:14,marginTop:10}}>{t.savedMsg}</div>}
             </div>
           )}
 
+          {/* ── ANALYSE ── */}
           {tab==="analyze"&&(
             <div>
-              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>📈 房产分析</div>
-              <div style={{fontSize:13,color:C.txt2,marginBottom:14}}>AI 估值 · 市场比较 · 风险评估</div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>📈 {t.analyzeTitle}</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:14}}>{t.analyzeSub}</div>
               <SubNav tabs={ATABS} active={subTab.analyze} onChange={v=>setSubTab(s=>({...s,analyze:v}))}/>
               {subTab.analyze==="val"&&(
                 <div>
                   <div style={{display:"flex",gap:8,marginBottom:14}}>
-                    <MC label="市场估值" value={metrics.val} sub="AI综合分析"/>
-                    <MC label="每尺价格" value={metrics.psf} sub="建筑面积"/>
-                    <MC label="银行估值" value={metrics.bank} sub="较市价保守"/>
+                    <MC label={t.estValue} value={metrics.val} sub={t.aiAnalysis}/>
+                    <MC label={t.psfLabel} value={metrics.psf} sub={t.builtArea}/>
+                    <MC label={t.bankVal} value={metrics.bank} sub={t.conservative}/>
                   </div>
                   <Btn v="primary" full icon="✨" onClick={runVal} disabled={busy.val} style={{marginBottom:14}}>
-                    {busy.val?<Spin msg="AI 估值中..."/>:"开始 AI 估值"}
+                    {busy.val?<Spin msg={t.valInProgress}/>:t.startVal}
                   </Btn>
-                  <AiBox text={outs.val} loading={busy.val} msg="AI 估值分析中..." ph="保存档案后点击估值..."/>
+                  <AiBox text={outs.val} loading={busy.val} msg={t.valInProgress} ph={t.valPh}/>
                 </div>
               )}
               {subTab.analyze==="mkt"&&(
                 <div>
                   <Btn v="primary" full icon="📊" onClick={runMkt} disabled={busy.mkt} style={{marginBottom:14}}>
-                    {busy.mkt?<Spin msg="生成比较数据..."/>:"AI 生成市场比较"}
+                    {busy.mkt?<Spin msg={t.genMktMsg}/>:t.aiMktBtn}
                   </Btn>
                   {mktRows&&(
                     <div style={{overflowX:"auto",marginBottom:14}}>
                       <table style={{width:"100%",borderCollapse:"collapse",fontSize:12.5,minWidth:400}}>
-                        <thead><tr>{["地址","面积","成交价","每尺","差异"].map(h=><th key={h} style={{textAlign:"left",fontSize:11,fontWeight:600,color:C.txt3,padding:"0 8px 8px",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+                        <thead><tr>{[t.address,t.builtUp,t.price,"PSF",t.notes].map(h=><th key={h} style={{textAlign:"left",fontSize:11,fontWeight:600,color:C.txt3,padding:"0 8px 8px",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
                         <tbody>
-                          <tr>{[`本物业`,`${prof.built||"?"}sqft`,`RM${(+prof.price||0).toLocaleString()}`,`RM${prof.built?Math.round((+prof.price)/(+prof.built)):"-"}`,"主体"].map((v,i)=><td key={i} style={{padding:"8px",borderBottom:`1px solid ${C.border}`,color:C.blueTxt,fontWeight:600}}>{v}</td>)}</tr>
+                          <tr>{[`[${t.subject}] ${prof.addr?.split(",")[0]||""}`,`${prof.built||"?"}sqft`,`RM${(+prof.price||0).toLocaleString()}`,`RM${prof.built?Math.round((+prof.price)/(+prof.built)):"-"}`,t.subject].map((v,i)=><td key={i} style={{padding:"8px",borderBottom:`1px solid ${C.border}`,color:C.blueTxt,fontWeight:600}}>{v}</td>)}</tr>
                           {mktRows.map((row,i)=><tr key={i}>{row.map((v,j)=><td key={j} style={{padding:"8px",borderBottom:`1px solid ${C.border}`,color:C.txt}}>{v}</td>)}</tr>)}
                         </tbody>
                       </table>
                     </div>
                   )}
-                  <AiBox text={outs.mkt} loading={busy.mkt} msg="生成市场比较数据..." ph="点击按钮生成可比房产数据..."/>
+                  <AiBox text={outs.mkt} loading={busy.mkt} msg={t.genMktMsg} ph={t.mktPh}/>
                 </div>
               )}
               {subTab.analyze==="risk"&&(
                 <div>
                   <Btn v="primary" full icon="🛡" onClick={runRisk} disabled={busy.risk} style={{marginBottom:14}}>
-                    {busy.risk?<Spin msg="AI 风险评估中..."/>:"AI 风险评估"}
+                    {busy.risk?<Spin msg={t.riskInProgress}/>:t.riskBtn}
                   </Btn>
                   {riskItems&&riskItems.map((r,i)=>{
                     const color=r.lv==="low"?C.green:r.lv==="high"?C.red:C.amber;
                     const bg=r.lv==="low"?C.greenBg:r.lv==="high"?C.redBg:C.amberBg;
-                    const lbl=r.lv==="low"?"低风险":r.lv==="high"?"高风险":"中风险";
+                    const lbl=r.lv==="low"?t.lowRisk:r.lv==="high"?t.highRisk:t.medRisk;
                     return(
                       <div key={i} style={{display:"flex",alignItems:"flex-start",gap:12,padding:14,border:`1.5px solid ${C.border}`,borderRadius:14,marginBottom:8}}>
                         <span style={{fontSize:12,padding:"4px 10px",borderRadius:20,background:bg,color,border:`1px solid ${color}`,flexShrink:0,marginTop:2,fontWeight:600}}>{lbl}</span>
@@ -497,26 +804,27 @@ function PropValAI() {
                       </div>
                     );
                   })}
-                  <AiBox text={outs.risk} loading={busy.risk} msg="AI 风险评估中..." ph="AI 将从四个维度分析风险..."/>
+                  <AiBox text={outs.risk} loading={busy.risk} msg={t.riskInProgress} ph={t.riskPh}/>
                 </div>
               )}
             </div>
           )}
 
+          {/* ── TOOLS ── */}
           {tab==="tools"&&(
             <div>
-              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🧮 分析工具</div>
-              <div style={{fontSize:13,color:C.txt2,marginBottom:14}}>财务计算 · 生成估价报告</div>
+              <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>🧮 {t.toolsTitle}</div>
+              <div style={{fontSize:13,color:C.txt2,marginBottom:14}}>{t.toolsSub}</div>
               <SubNav tabs={TTABS} active={subTab.tools} onChange={v=>setSubTab(s=>({...s,tools:v}))}/>
               {subTab.tools==="fin"&&(
                 <div>
                   <Row gap={10}>
-                    <FG label="购买价格 (RM)" half><Input type="number" value={finV.price} onChange={setFv("price")} placeholder="680000" inputMode="numeric"/></FG>
-                    <FG label="月租金 (RM)" half><Input type="number" value={finV.rent} onChange={setFv("rent")} placeholder="2400" inputMode="numeric"/></FG>
-                    <FG label="首付比例 (%)" half><Input type="number" value={finV.down} onChange={setFv("down")} placeholder="10"/></FG>
-                    <FG label="贷款利率 (%)" half><Input type="number" step="0.1" value={finV.rate} onChange={setFv("rate")} placeholder="4.0"/></FG>
-                    <FG label="贷款年限" half><Sel value={finV.years} onChange={setFv("years")}><option value="35">35年</option><option value="30">30年</option><option value="25">25年</option></Sel></FG>
-                    <FG label="月维护费 (RM)" half><Input type="number" value={finV.maint} onChange={setFv("maint")} placeholder="300" inputMode="numeric"/></FG>
+                    <FG label={t.purchasePrice} half><Input type="number" value={finV.price} onChange={setFv("price")} placeholder="680000" inputMode="numeric"/></FG>
+                    <FG label={t.monthlyRental} half><Input type="number" value={finV.rent} onChange={setFv("rent")} placeholder="2400" inputMode="numeric"/></FG>
+                    <FG label={t.downPay} half><Input type="number" value={finV.down} onChange={setFv("down")} placeholder="10"/></FG>
+                    <FG label={t.interestRate} half><Input type="number" step="0.1" value={finV.rate} onChange={setFv("rate")} placeholder="4.0"/></FG>
+                    <FG label={t.loanTenure} half><Sel value={finV.years} onChange={setFv("years")}><option value="35">{t.yr35}</option><option value="30">{t.yr30}</option><option value="25">{t.yr25}</option></Sel></FG>
+                    <FG label={t.maintenance} half><Input type="number" value={finV.maint} onChange={setFv("maint")} placeholder="300" inputMode="numeric"/></FG>
                   </Row>
                   {finR?(
                     <>
@@ -530,26 +838,27 @@ function PropValAI() {
                       </div>
                       <div style={{fontSize:13.5,color:C.txt2,background:C.bg2,borderRadius:12,padding:"12px 14px",marginTop:10,borderLeft:`3px solid ${C.border2}`}}>{finR.tip}</div>
                     </>
-                  ):<div style={{color:C.txt3,fontSize:14}}>填入购买价格和租金即可实时计算。</div>}
+                  ):<div style={{color:C.txt3,fontSize:14,marginTop:4}}>{t.finPh}</div>}
+                  <div style={{fontSize:12,color:C.txt3,marginTop:12,padding:"8px 12px",background:C.bg2,borderRadius:10}}>{t.capTip}</div>
                 </div>
               )}
               {subTab.tools==="report"&&(
                 <div>
                   <Row gap={10} style={{marginBottom:0}}>
                     <Btn v="primary" full icon="📄" onClick={genReport} disabled={busy.report}>
-                      {busy.report?<Spin msg="生成报告中..."/>:"生成完整估价报告"}
+                      {busy.report?<Spin msg={t.genReportMsg}/>:t.genReportBtn}
                     </Btn>
-                    {reportSecs&&<Btn icon="📤" onClick={async()=>{const t=reportSecs.map(s=>`${s.title}\n${s.body}`).join("\n\n");if(navigator.share)await navigator.share({title:"PropVal AI 估价报告",text:t});else if(navigator.clipboard)await navigator.clipboard.writeText(t);}}>分享</Btn>}
+                    {reportSecs&&<Btn icon="📤" onClick={async()=>{const tx=reportSecs.map(s=>`${s.title}\n${s.body}`).join("\n\n");if(navigator.share)await navigator.share({title:"PropVal AI",text:tx});else if(navigator.clipboard)await navigator.clipboard.writeText(tx);}}>{t.shareBtn}</Btn>}
                   </Row>
-                  <div style={{fontSize:12,color:C.txt3,padding:"10px 12px",background:C.bg2,borderRadius:10,marginTop:10,marginBottom:14}}>⚠️ 本报告仅供参考，正式法律用途请委托 LPPEH 持牌估价师。</div>
-                  {busy.report&&<div style={{padding:"16px 0"}}><Spin msg="生成报告中，请稍候..."/></div>}
+                  <div style={{fontSize:12,color:C.txt3,padding:"10px 12px",background:C.bg2,borderRadius:10,marginTop:10,marginBottom:14}}>{t.disclaimer}</div>
+                  {busy.report&&<div style={{padding:"16px 0"}}><Spin msg={t.genWait}/></div>}
                   {reportSecs&&reportSecs.map((s,i)=>(
                     <div key={i} style={{border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:10}}>
                       <div style={{fontSize:13,fontWeight:700,color:C.txt2,marginBottom:8}}>{["📋","🏠","📈","🔢","💰","⚠️"][i]||"📌"} {s.title}</div>
                       <div style={{fontSize:13.5,color:C.txt,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s.body}</div>
                     </div>
                   ))}
-                  {!busy.report&&!reportSecs&&<AiBox text={null} ph="保存档案后点击生成完整 LPPEH 框架报告..."/>}
+                  {!busy.report&&!reportSecs&&<AiBox text={null} ph={t.reportPh}/>}
                 </div>
               )}
             </div>
@@ -558,6 +867,7 @@ function PropValAI() {
         </div>
       </div>
 
+      {/* BOTTOM NAV */}
       <div style={{background:C.bg1,borderTop:`1px solid ${C.border}`,display:"flex",flexShrink:0,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
         {NAV.map(n=>(
           <button key={n.id} onClick={()=>setTab(n.id)} className="nav-btn" style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 4px 8px",background:"none",border:"none",cursor:"pointer",color:tab===n.id?C.blue:C.txt3,transition:"color .15s",fontFamily:"inherit",position:"relative"}}>
@@ -571,11 +881,8 @@ function PropValAI() {
   );
 }
 
-// Remove loading screen and mount app
-document.getElementById("loading").style.display = "none";
+document.getElementById("loading").style.display="none";
 ReactDOM.createRoot(document.getElementById("root")).render(<PropValAI/>);
-
-// Register service worker
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
 }
